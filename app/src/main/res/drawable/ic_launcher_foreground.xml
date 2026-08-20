@@ -1,0 +1,36 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Subtle pinch gesture aesthetic: Two converging modern arcs around the center safe zone -->
+    <path
+        android:strokeColor="#A7E4D4"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M 33,37 C 36,31 43,27 50,27" />
+    <path
+        android:fillColor="#A7E4D4"
+        android:pathData="M 33,37 m -2.5,0 a 2.5,2.5 0 1,0 5,0 a 2.5,2.5 0 1,0 -5,0" />
+
+    <path
+        android:strokeColor="#A7E4D4"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M 75,71 C 72,77 65,81 58,81" />
+    <path
+        android:fillColor="#A7E4D4"
+        android:pathData="M 75,71 m -2.5,0 a 2.5,2.5 0 1,0 5,0 a 2.5,2.5 0 1,0 -5,0" />
+
+    <!-- Centered Rupee glyph (24x24 standard glyph placed at center 54, 54 scaled 2.0x, offset -24) -->
+    <group
+        android:translateX="30"
+        android:translateY="30"
+        android:scaleX="2.0"
+        android:scaleY="2.0">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M13.66,7c-0.56,-1.18 -1.76,-2 -3.16,-2H6V3h12v2h-3.26c0.48,0.58 0.84,1.26 1.05,2H18v2h-2.02c-0.25,2.8 -2.61,5 -5.48,5H9.77l7.73,7H14.3l-6,-6H6v-2h4.5c1.24,0 2.24,-0.99 2.24,-2.25S11.74,7 10.5,7H6V5h7.66z" />
+    </group>
+</vector>

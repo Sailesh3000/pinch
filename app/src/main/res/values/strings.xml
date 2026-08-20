@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">pinch</string>
+    <string name="app_tagline">spending, sorted.</string>
+    <string name="notification_listener_label">pinch transaction listener</string>
+</resources>
