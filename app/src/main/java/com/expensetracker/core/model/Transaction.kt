@@ -1,0 +1,26 @@
+package com.expensetracker.core.model
+
+data class Transaction(
+    val id: Long,
+    val amount: Double,
+    val currency: String,
+    val txnType: TransactionType,
+    val merchantName: String,
+    val cleanPayee: String?,
+    val categoryId: Long,
+    val categoryName: String?,
+    val categoryIconKey: String?,
+    val categoryColorHex: String?,
+    val timestamp: Long,
+    val sourcePackage: String,
+    val sourceType: SourceType,
+    val rawNotificationText: String,
+    val confidenceScore: Float,
+    val confidenceTier: ConfidenceTier,
+    val needsClarification: Boolean,
+    val isClarified: Boolean,
+    val dedupHash: String?,
+    val mergedFromDualSource: Boolean,
+    val accountReference: String?,
+    val createdAt: Long,
+)
