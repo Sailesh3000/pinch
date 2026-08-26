@@ -23,6 +23,8 @@ class PreFilterEngine(private val whitelist: PackageWhitelist) {
         """
         (?ix)
         \b(otp|verification\s+code|security\s+code|login\s+alert|pre[- ]approved\s+loan|exclusive\s+offer|discount\s+coupon|promo\s+code)\b
+        |\b(cashback|reward(?:\s*points?)?|bonus(?:\s*points?)?|wallet\s*offer|gift\s*card|voucher|won|congratulations|instant\s*discount|special\s*offer|limited\s*period|sale\s*is\s*live|extra\s*off)\b
+        |\bflat\s*\d+%|\d+%\s*off|up\s*to\s*\d+%
         """.trimIndent()
     )
 

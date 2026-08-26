@@ -199,6 +199,12 @@ object BenchmarkCorpus {
         out += Sample("com.icici.bank", "Balance inquiry", "Your account balance has been updated. Check the app for details.", 0.0, "", "Uncategorized", "NON_FINANCIAL")
         out += Sample("net.one97.paytm", "Your monthly statement", "View your August statement online.", 0.0, "", "Uncategorized", "NON_FINANCIAL")
 
+        // --- Non-financial (cashback, rewards, promo) must be dropped ---
+        out += Sample("com.phonepe.app", "Cashback credited", "₹50 cashback credited to your wallet for this order", 0.0, "", "Uncategorized", "NON_FINANCIAL")
+        out += Sample("com.google.android.apps.nbu.paisa.user", "You're a winner!", "You've won a reward of Rs 100! Claim now", 0.0, "", "Uncategorized", "NON_FINANCIAL")
+        out += Sample("net.one97.paytm", "Big sale", "Flat 20% off + extra 10% instant cashback on your next order", 0.0, "", "Uncategorized", "NON_FINANCIAL")
+        out += Sample("com.hdfc.bank", "Diwali sale", "10% cashback credited on your HDFC card this Diwali sale", 0.0, "", "Uncategorized", "NON_FINANCIAL")
+
         return out
     }
 

@@ -153,4 +153,37 @@ class PreFilterEngineTest {
             )
         )
     }
+
+    @Test
+    fun `cashback credit is dropped`() {
+        assertFalse(
+            preFilter.isFinancialCandidate(
+                "com.phonepe.app",
+                "Cashback credited",
+                "You've earned ₹50 cashback on your last order.",
+            )
+        )
+    }
+
+    @Test
+    fun `reward won notification is dropped`() {
+        assertFalse(
+            preFilter.isFinancialCandidate(
+                "com.google.android.apps.nbu.paisa.user",
+                "You're a winner!",
+                "Congratulations! You won a reward of Rs 200.",
+            )
+        )
+    }
+
+    @Test
+    fun `sale and cashback promo is dropped`() {
+        assertFalse(
+            preFilter.isFinancialCandidate(
+                "net.one97.paytm",
+                "Big sale",
+                "Flat 20% off on your next Swiggy order, plus instant cashback.",
+            )
+        )
+    }
 }

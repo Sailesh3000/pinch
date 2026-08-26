@@ -101,7 +101,13 @@ open class GeminiNanoExtractor(
                - 0.90+: Clear merchant with unambiguous category (e.g. "Swiggy", "Uber", "Netflix").
                - 0.70-0.89: Clear debit/credit, known merchant, but broad category.
                - Below 0.70: Generic personal transfer (e.g. "Paid Rs 500 to Ramesh Kumar"), ambiguous format, or unclear purpose.
-            6. Output strict JSON matching this schema exactly. No markdown outside JSON.
+            6. Set "is_financial_transaction" to false for cashback credits, reward/loyalty points, promotional offers, discount/sale announcements, and marketing messages — these are NOT real bank debits/credits even if they mention an amount or use the word "credited".
+            7. Output strict JSON matching this schema exactly. No markdown outside JSON.
+
+            EXAMPLES OF NON-FINANCIAL (is_financial_transaction=false):
+            - "You've earned ₹50 cashback on your Swiggy order" -> promotional cashback, not a real transaction.
+            - "Congratulations! You won a reward of Rs 100. Claim now" -> promotional reward, not a real transaction.
+            - "Flat 20% off + extra 10% instant cashback on your next order" -> sale/discount announcement, not a real transaction.
         """.trimIndent()
 
         return """

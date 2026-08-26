@@ -12,7 +12,12 @@ open class DeterministicRegexExtractor : TransactionExtractor {
     open override suspend fun isAvailable(): Boolean = true
 
     private val financialSignal = Regex(
-        """[₹$€£]|\b(?:INR|Rs\.?|USD|EUR|GBP|paid|debited|credited|spent|received|refund|purchase|payment|sent|transfer|withdraw|deposited|cashback|emi)\b""",
+        """[₹$€£]|\b(?:INR|Rs\.?|USD|EUR|GBP|paid|debited|credited|spent|received|refund|purchase|payment|sent|transfer|withdraw|deposited|emi)\b""",
+        RegexOption.IGNORE_CASE
+    )
+
+    private val promotionalSignal = Regex(
+        """\b(cashback|reward(?:\s*points?)?|bonus(?:\s*points?)?|wallet\s*offer|gift\s*card|voucher|won|congratulations|instant\s*discount|special\s*offer|limited\s*period|sale\s*is\s*live|extra\s*off)\b|flat\s*\d+%|\d+%\s*off|up\s*to\s*\d+%""",
         RegexOption.IGNORE_CASE
     )
 
@@ -23,6 +28,7 @@ open class DeterministicRegexExtractor : TransactionExtractor {
         timestampEpoch: Long,
     ): ExtractionResult? {
         val text = "$title $body".trim()
+        if (promotionalSignal.containsMatchIn(text)) return null
         if (!financialSignal.containsMatchIn(text)) return null
         val amount = LiteralExtraction.firstAmount(text) ?: return null
         val txnType = detectType(text)
@@ -55,7 +61,7 @@ open class DeterministicRegexExtractor : TransactionExtractor {
             RegexOption.IGNORE_CASE
         )
         val credit = Regex(
-            """\b(credited|received|refund|cashback|deposited)\b""",
+            """\b(credited|received|refund|deposited)\b""",
             RegexOption.IGNORE_CASE
         )
         return when {
