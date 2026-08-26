@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,6 +40,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -49,8 +52,12 @@ import com.expensetracker.core.database.dao.CategorySpend
 import com.expensetracker.insights.DeepLinkType
 import com.expensetracker.ui.theme.Coral
 import com.expensetracker.ui.theme.CoralSoft
+import com.expensetracker.ui.theme.ElectricMint
+import com.expensetracker.ui.theme.GradientTealEnd
+import com.expensetracker.ui.theme.GradientTealStart
 import com.expensetracker.ui.theme.MintGlow
 import com.expensetracker.ui.theme.MistTeal
+import com.expensetracker.ui.theme.MonoFont
 import com.expensetracker.ui.theme.PinchTeal
 import kotlin.math.abs
 
@@ -216,54 +223,77 @@ private fun MonthSummaryCard(state: InsightsUiState) {
     val summary = state.monthSummary ?: return
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        shape = RoundedCornerShape(28.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Text(
-                "THIS MONTH'S TOTAL",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    letterSpacing = 1.sp,
-                    fontWeight = FontWeight.Bold,
-                ),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = Formatters.money(summary.currentMonthTotal),
-                style = MaterialTheme.typography.headlineLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                ),
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            if (summary.previousMonthTotal > 0) {
-                val up = summary.deltaAmount > 0
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(if (up) CoralSoft else MistTeal)
-                        .padding(horizontal = 10.dp, vertical = 4.dp),
-                ) {
-                    Icon(
-                        imageVector = if (up) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
-                        contentDescription = null,
-                        tint = if (up) Coral else PinchTeal,
-                        modifier = Modifier.size(13.dp),
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(ElectricMint, GradientTealStart, GradientTealEnd),
+                        start = Offset(0f, 0f),
+                        end = Offset(1100f, 900f),
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = buildString {
-                            append(Formatters.money(abs(summary.deltaAmount)))
-                            append(if (up) " more vs last month" else " less vs last month")
-                        },
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Medium,
+                )
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(160.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = 40.dp, y = (-50).dp)
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(ElectricMint.copy(alpha = 0.5f), Color.Transparent)
                         ),
-                        color = if (up) Coral else PinchTeal,
+                        shape = CircleShape,
                     )
+            )
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(
+                    "THIS MONTH'S TOTAL",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        letterSpacing = 1.2.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    ),
+                    color = Color.White.copy(alpha = 0.85f),
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = Formatters.money(summary.currentMonthTotal),
+                    style = MaterialTheme.typography.displayMedium,
+                    color = Color.White,
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                if (summary.previousMonthTotal > 0) {
+                    val up = summary.deltaAmount > 0
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(
+                                if (up) CoralSoft.copy(alpha = 0.22f) else MistTeal.copy(alpha = 0.22f)
+                            )
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                    ) {
+                        Icon(
+                            imageVector = if (up) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+                            contentDescription = null,
+                            tint = if (up) Color(0xFFFFB3A0) else Color(0xFFAEF1E1),
+                            modifier = Modifier.size(13.dp),
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = buildString {
+                                append(Formatters.money(abs(summary.deltaAmount)))
+                                append(if (up) " more vs last month" else " less vs last month")
+                            },
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Medium,
+                            ),
+                            color = Color.White.copy(alpha = 0.95f),
+                        )
+                    }
                 }
             }
         }
@@ -322,6 +352,7 @@ private fun CategoryBreakdownCard(categories: List<CategorySpend>) {
                     Text(
                         text = Formatters.money(cat.totalAmount),
                         style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = MonoFont,
                             fontWeight = FontWeight.SemiBold,
                         ),
                     )
@@ -443,7 +474,7 @@ private fun TopMerchantRow(merchant: TopMerchantData) {
             }
             Text(
                 text = Formatters.money(merchant.totalAmount),
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont, fontWeight = FontWeight.Bold),
             )
         }
     }
@@ -490,7 +521,7 @@ private fun SubscriptionRow(sub: SubscriptionDetector.Subscription) {
             }
             Text(
                 text = "~" + Formatters.money(sub.avgAmount),
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont, fontWeight = FontWeight.Bold),
                 color = PinchTeal,
             )
         }

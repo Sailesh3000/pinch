@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -60,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -74,10 +76,12 @@ import com.expensetracker.ui.detail.TransactionDetailSheet
 import com.expensetracker.ui.manualentry.ManualEntryDialog
 import com.expensetracker.ui.theme.Coral
 import com.expensetracker.ui.theme.CoralSoft
+import com.expensetracker.ui.theme.ElectricMint
 import com.expensetracker.ui.theme.GradientTealEnd
 import com.expensetracker.ui.theme.GradientTealStart
 import com.expensetracker.ui.theme.MintGlow
 import com.expensetracker.ui.theme.MistTeal
+import com.expensetracker.ui.theme.MonoFont
 import com.expensetracker.ui.theme.PinchTeal
 import kotlin.math.abs
 
@@ -210,7 +214,7 @@ private fun MonthSummaryHeader(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(28.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Box(
@@ -218,12 +222,26 @@ private fun MonthSummaryHeader(
                 .fillMaxWidth()
                 .background(
                     Brush.linearGradient(
-                        colors = listOf(GradientTealStart, GradientTealEnd)
+                        colors = listOf(ElectricMint, GradientTealStart, GradientTealEnd),
+                        start = Offset(0f, 0f),
+                        end = Offset(1100f, 900f),
                     )
                 )
-                .padding(20.dp)
         ) {
-            Column {
+            // Soft glow blob — decorative depth, not a hard shape.
+            Box(
+                modifier = Modifier
+                    .size(180.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = 50.dp, y = (-60).dp)
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(ElectricMint.copy(alpha = 0.55f), Color.Transparent)
+                        ),
+                        shape = CircleShape,
+                    )
+            )
+            Column(modifier = Modifier.padding(20.dp)) {
                 Text(
                     text = "SPENT THIS MONTH",
                     style = MaterialTheme.typography.labelSmall.copy(
@@ -235,10 +253,7 @@ private fun MonthSummaryHeader(
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = Formatters.money(summary?.currentMonthTotal ?: 0.0),
-                    style = MaterialTheme.typography.displaySmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-0.5).sp,
-                    ),
+                    style = MaterialTheme.typography.displayLarge,
                     color = Color.White,
                 )
                 Spacer(modifier = Modifier.height(10.dp))

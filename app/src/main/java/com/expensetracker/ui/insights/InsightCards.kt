@@ -56,6 +56,7 @@ import com.expensetracker.insights.QueryResult
 import com.expensetracker.ui.theme.Amber
 import com.expensetracker.ui.theme.Coral
 import com.expensetracker.ui.theme.MintGlow
+import com.expensetracker.ui.theme.MonoFont
 import com.expensetracker.ui.theme.PinchTeal
 
 @Composable
@@ -232,6 +233,7 @@ fun AnomalyCard(
             Text(
                 text = Formatters.money(anomaly.amount),
                 style = MaterialTheme.typography.titleMedium.copy(
+                    fontFamily = MonoFont,
                     fontWeight = FontWeight.Bold,
                 ),
                 color = color,

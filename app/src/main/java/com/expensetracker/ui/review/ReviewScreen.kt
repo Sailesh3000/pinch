@@ -53,6 +53,7 @@ import com.expensetracker.ui.theme.Amber
 import com.expensetracker.ui.theme.Coral
 import com.expensetracker.ui.theme.MintGlow
 import com.expensetracker.ui.theme.MistTeal
+import com.expensetracker.ui.theme.MonoFont
 import com.expensetracker.ui.theme.PinchTeal
 
 @Composable
@@ -214,7 +215,7 @@ fun ClarificationCard(
                 }
                 Text(
                     text = "- " + Formatters.money(transaction.transaction.amount, transaction.transaction.currency),
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.titleMedium.copy(fontFamily = MonoFont, fontWeight = FontWeight.Bold),
                 )
                 IconButton(onClick = onReject, modifier = Modifier.size(32.dp)) {
                     Icon(

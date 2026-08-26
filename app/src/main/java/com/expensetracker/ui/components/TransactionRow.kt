@@ -33,6 +33,7 @@ import com.expensetracker.core.model.SourceType
 import com.expensetracker.core.model.Transaction
 import com.expensetracker.core.model.TransactionType
 import com.expensetracker.ui.theme.Coral
+import com.expensetracker.ui.theme.MonoFont
 import com.expensetracker.ui.theme.PinchTeal
 
 /**
@@ -105,8 +106,9 @@ fun TransactionRow(
                 Text(
                     text = amountPrefix + " " + Formatters.money(transaction.amount, transaction.currency),
                     style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = MonoFont,
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = (-0.2).sp,
+                        letterSpacing = 0.sp,
                     ),
                     color = amountColor,
                 )
