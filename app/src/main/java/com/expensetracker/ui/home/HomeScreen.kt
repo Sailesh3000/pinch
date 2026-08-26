@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -90,6 +91,10 @@ fun HomeScreen(
     var showManualEntry by remember { mutableStateOf(false) }
 
     Scaffold(
+        // The outer nav host already applies system-bar insets to every tab;
+        // this Scaffold exists only to place the FAB, so don't let it add a
+        // second top inset that pushes the header below Insights/Review.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showManualEntry = true },
