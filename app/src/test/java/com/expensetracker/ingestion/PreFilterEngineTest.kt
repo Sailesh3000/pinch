@@ -186,4 +186,26 @@ class PreFilterEngineTest {
             )
         )
     }
+
+    @Test
+    fun `ad sms quoting a price with no transaction verb is dropped`() {
+        assertFalse(
+            preFilter.isFinancialCandidate(
+                "com.google.android.apps.messaging",
+                "AD-650025-P",
+                "Watch India vs Sri Lanka on Sony LIV. Get Box Office Pack at Rs. 200. Recharge now.",
+            )
+        )
+    }
+
+    @Test
+    fun `investment ad quoting bare currency amounts is dropped`() {
+        assertFalse(
+            preFilter.isFinancialCandidate(
+                "com.phonepe.app",
+                "Daily RD",
+                "Turn ₹100/day into ₹37,611*! Set up Daily RD to maximize your savings.",
+            )
+        )
+    }
 }

@@ -186,7 +186,7 @@ open class MediaPipeExtractor(
             CRITICAL EXTRACTION RULES:
             1. Extract the exact numerical amount literal present in the text. DO NOT perform any mathematical calculations, splits, or currency conversions.
             2. Clean merchant/payee names. For UPI-style strings like "UPI/SWIGGY/PAYTM/1234" or "UPI/SWIGGY/1234", output ONLY the merchant name ("SWIGGY"). Remove UPI codes, bank names, trailing digits, and separators. The merchant_or_payee must NEVER contain "UPI", "PHONEPE", "PAYTM", "GOOGLE", "BANK", a slash, or a digit.
-            3. Determine if it is a DEBIT (money spent/withdrawn) or CREDIT (money received/refund).
+            3. Determine if it is a DEBIT (money spent/withdrawn) or CREDIT (money received/refund). Read the direction carefully: "<Person> has sent ₹X to your account" or "Money received... <Person> has sent ₹X" means YOU received the money — that is a CREDIT, even though the word "sent" appears (it describes the other party's action, not yours).
             4. Assign the most accurate category from the allowed enum: "Food & Dining", "Groceries", "Transportation", "Shopping", "Bills & Utilities", "Rent", "Entertainment", "Health & Medical", "Investment", "Friend/Transfer", "Salary/Income", "Uncategorized".
             5. Provide a realistic confidence_score between 0.00 and 1.00:
                - 0.90+: Clear merchant with unambiguous category (e.g. "Swiggy", "Uber", "Netflix").

@@ -7,15 +7,17 @@ package com.expensetracker.ingestion
  */
 class PreFilterEngine(private val whitelist: PackageWhitelist) {
 
+    // A bare currency symbol/code is deliberately NOT a positive signal on its
+    // own — promotional/ad SMS routinely quote a price ("Rs. 200", "up to ₹300
+    // off") without being a real transaction. A candidate must contain an
+    // actual transaction verb or an account/UPI reference.
     private val positivePattern = Regex(
         """
         (?ix)
-        \b(debited|credited|spent|transferred|paid|sent\s+to|received\s+from|purchase|refund)\b
+        \b(debited|credited|spent|transferred|paid|sent\s+to|received\s+from|purchase|refund|withdrawn?)\b
         |\bupi\s*ref\b
         |\ba/c\s*\*\d
         |\bvpa\b
-        |\b(?:inr|rs\.?|usd|eur|gbp)\b
-        |[₹$€£]
         """.trimIndent()
     )
 

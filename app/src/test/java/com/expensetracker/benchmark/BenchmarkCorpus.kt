@@ -205,6 +205,12 @@ object BenchmarkCorpus {
         out += Sample("net.one97.paytm", "Big sale", "Flat 20% off + extra 10% instant cashback on your next order", 0.0, "", "Uncategorized", "NON_FINANCIAL")
         out += Sample("com.hdfc.bank", "Diwali sale", "10% cashback credited on your HDFC card this Diwali sale", 0.0, "", "Uncategorized", "NON_FINANCIAL")
 
+        // --- Non-financial ad/promo SMS that quote a price but have no transaction verb ---
+        out += Sample("com.google.android.apps.messaging", "AD-650025-P", "The wait is over! Watch India vs Sri Lanka on Sony LIV this Independence Day. Get Box Office Pack and enjoy 20+ OTTs at Rs. 200. Recharge now.", 0.0, "", "Uncategorized", "NON_FINANCIAL")
+        out += Sample("com.phonepe.app", "Daily RD", "Turn ₹100/day into ₹37,611*! Set up Daily RD to maximize your savings with assured returns. Start saving now.", 0.0, "", "Uncategorized", "NON_FINANCIAL")
+        out += Sample("com.phonepe.app", "redBus offer", "Save up to ₹300 on bus tickets! Book redBus tickets directly on PhonePe! Use code PP300 to get up to ₹300 off now.", 0.0, "", "Uncategorized", "NON_FINANCIAL")
+        out += Sample("com.google.android.apps.messaging", "BT-SAMSNG-P", "Get personal training on the run with Running Coach on Samsung Galaxy Watch9. Starts at Rs.1417/month*. Own now.", 0.0, "", "Uncategorized", "NON_FINANCIAL")
+
         return out
     }
 

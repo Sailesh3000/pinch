@@ -11,8 +11,12 @@ open class DeterministicRegexExtractor : TransactionExtractor {
 
     open override suspend fun isAvailable(): Boolean = true
 
+    // A bare currency symbol/code is deliberately NOT sufficient on its own —
+    // see PreFilterEngine.positivePattern for why. Mirror its full anchor set:
+    // a transaction verb, or an account/UPI reference (real bank SMS often
+    // omits a verb, e.g. "Rs 1,234.50 from A/c *9876, Ref ...").
     private val financialSignal = Regex(
-        """[₹$€£]|\b(?:INR|Rs\.?|USD|EUR|GBP|paid|debited|credited|spent|received|refund|purchase|payment|sent|transfer|withdraw|deposited|emi)\b""",
+        """\b(?:paid|debited|credited|spent|received|refund|purchase|payment|sent|transfer|withdrawn?|deposited|emi)\b|\bupi\s*ref\b|\ba/c\s*\*\d|\bvpa\b""",
         RegexOption.IGNORE_CASE
     )
 
