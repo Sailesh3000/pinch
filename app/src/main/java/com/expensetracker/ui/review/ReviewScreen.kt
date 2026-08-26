@@ -22,12 +22,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,6 +50,7 @@ import com.expensetracker.core.model.Category
 import com.expensetracker.ui.components.CategoryChipPicker
 import com.expensetracker.ui.components.CategoryIcon
 import com.expensetracker.ui.theme.Amber
+import com.expensetracker.ui.theme.Coral
 import com.expensetracker.ui.theme.MintGlow
 import com.expensetracker.ui.theme.MistTeal
 import com.expensetracker.ui.theme.PinchTeal
@@ -93,6 +96,7 @@ fun ReviewScreen(
                 onSelectCategory = { txId, catId ->
                     viewModel.resolveCategory(txId, catId, null)
                 },
+                onReject = viewModel::reject,
             )
         }
     }
@@ -144,6 +148,7 @@ private fun ReviewList(
     transactions: List<TransactionWithCategory>,
     onExpand: (Long) -> Unit,
     onSelectCategory: (Long, Long) -> Unit,
+    onReject: (Long) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -156,6 +161,7 @@ private fun ReviewList(
                 expanded = false,
                 onExpand = { onExpand(tx.transaction.id) },
                 onSelectCategory = { catId -> onSelectCategory(tx.transaction.id, catId) },
+                onReject = { onReject(tx.transaction.id) },
             )
         }
     }
@@ -167,6 +173,7 @@ fun ClarificationCard(
     expanded: Boolean,
     onExpand: () -> Unit,
     onSelectCategory: (Long) -> Unit,
+    onReject: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -209,6 +216,14 @@ fun ClarificationCard(
                     text = "- " + Formatters.money(transaction.transaction.amount, transaction.transaction.currency),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 )
+                IconButton(onClick = onReject, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        imageVector = Icons.Filled.DeleteOutline,
+                        contentDescription = "Not a transaction",
+                        tint = Coral,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
             }
 
             // Suggestion chips

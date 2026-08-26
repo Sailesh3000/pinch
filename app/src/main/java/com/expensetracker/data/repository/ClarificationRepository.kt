@@ -80,4 +80,13 @@ class ClarificationRepository @Inject constructor(
             defaultCategoryId = newCategoryId,
         )
     }
+
+    /**
+     * User marked a queued item as "not a transaction" (false positive from
+     * extraction, e.g. a cashback/offer notification). Removes it outright
+     * rather than leaving it in the queue or counting it toward totals.
+     */
+    suspend fun reject(transactionId: Long) {
+        transactionDao.deleteById(transactionId)
+    }
 }

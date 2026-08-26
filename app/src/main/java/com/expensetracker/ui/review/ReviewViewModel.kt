@@ -81,4 +81,10 @@ class ReviewViewModel @Inject constructor(
             categoryRepository.incrementUsage(categoryId)
         }
     }
+
+    fun reject(transactionId: Long) {
+        viewModelScope.launch {
+            clarificationRepository.reject(transactionId)
+        }
+    }
 }
