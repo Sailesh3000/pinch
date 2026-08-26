@@ -14,9 +14,12 @@ class PreFilterEngine(private val whitelist: PackageWhitelist) {
     private val positivePattern = Regex(
         """
         (?ix)
-        \b(debited|credited|spent|transferred|paid|sent\s+to|received\s+from|purchase|refund|withdrawn?)\b
+        \b(debited|credited|spent|transferred|paid|sent|received|purchase|refund|withdrawn?)\b
+        |\b(dr|cr)\.?\s+(?:inr|rs\.?|usd|eur|gbp|[₹$€£])
         |\bupi\s*ref\b
+        |\bupi\s*[:-]?\s*\d{6,}
         |\ba/c\s*\*\d
+        |\bacct\.?\s*[a-z*]{0,5}\d
         |\bvpa\b
         """.trimIndent()
     )

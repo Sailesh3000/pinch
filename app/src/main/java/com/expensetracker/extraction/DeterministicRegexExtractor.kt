@@ -16,7 +16,7 @@ open class DeterministicRegexExtractor : TransactionExtractor {
     // a transaction verb, or an account/UPI reference (real bank SMS often
     // omits a verb, e.g. "Rs 1,234.50 from A/c *9876, Ref ...").
     private val financialSignal = Regex(
-        """\b(?:paid|debited|credited|spent|received|refund|purchase|payment|sent|transfer|withdrawn?|deposited|emi)\b|\bupi\s*ref\b|\ba/c\s*\*\d|\bvpa\b""",
+        """\b(?:paid|debited|credited|spent|received|refund|purchase|payment|sent|transfer|withdrawn?|deposited|emi)\b|\b(?:dr|cr)\.?\s+(?:inr|rs\.?|usd|eur|gbp|[₹$€£])|\bupi\s*ref\b|\bupi\s*[:-]?\s*\d{6,}|\ba/c\s*\*\d|\bacct\.?\s*[a-z*]{0,5}\d|\bvpa\b""",
         RegexOption.IGNORE_CASE
     )
 
@@ -60,12 +60,18 @@ open class DeterministicRegexExtractor : TransactionExtractor {
     }
 
     private fun detectType(text: String): String {
+        // "<Person> sent ₹X to you[r account]" describes the OTHER party's
+        // action — the amount is incoming, so it's a CREDIT even though "sent"
+        // (a debit word) appears. Check this direction override first.
+        val sentToYou = Regex("""\bsent\b.{0,40}?\bto\s+your?\b""", RegexOption.IGNORE_CASE)
+        if (sentToYou.containsMatchIn(text)) return "CREDIT"
+
         val debit = Regex(
-            """\b(debited|spent|paid|sent|purchase|payment|withdraw|transfer)\b""",
+            """\b(debited|spent|paid|sent|purchase|payment|withdraw|transfer)\b|\bdr\.?\s+(?:inr|rs\.?|usd|eur|gbp|[₹$€£])""",
             RegexOption.IGNORE_CASE
         )
         val credit = Regex(
-            """\b(credited|received|refund|deposited)\b""",
+            """\b(credited|received|refund|deposited)\b|\bcr\.?\s+(?:inr|rs\.?|usd|eur|gbp|[₹$€£])""",
             RegexOption.IGNORE_CASE
         )
         return when {

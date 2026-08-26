@@ -199,6 +199,28 @@ class PreFilterEngineTest {
     }
 
     @Test
+    fun `p2p receive notification with amount between sent and to is a candidate`() {
+        assertTrue(
+            preFilter.isFinancialCandidate(
+                "com.phonepe.app",
+                "Varun",
+                "sent ₹10 to you.",
+            )
+        )
+    }
+
+    @Test
+    fun `dr abbreviation bank sms is a candidate`() {
+        assertTrue(
+            preFilter.isFinancialCandidate(
+                "com.google.android.apps.messaging",
+                "AX-CANBNK-S",
+                "Dear Customer, Acct XXX331 Dr. INR 10.00 on 26/08/26 to KONDAPURAM V; UPI: 669992992861; Bal INR 1,261.97.Not you?SMS BLOCKUPI to 9901771222-CanaraBank",
+            )
+        )
+    }
+
+    @Test
     fun `investment ad quoting bare currency amounts is dropped`() {
         assertFalse(
             preFilter.isFinancialCandidate(

@@ -1,6 +1,7 @@
 package com.expensetracker.ingestion
 
 import android.app.Notification
+import android.content.pm.ApplicationInfo
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -73,7 +74,12 @@ class TransactionNotificationListenerService : NotificationListenerService() {
         val extras = sbn.notification.extras
         val title = extras.getString(Notification.EXTRA_TITLE).orEmpty()
         val body = extras.getString(Notification.EXTRA_TEXT).orEmpty()
-        if (!preFilterEngine.isFinancialCandidate(packageName, title, body)) return
+        val isCandidate = preFilterEngine.isFinancialCandidate(packageName, title, body)
+        val isDebuggable = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (isDebuggable && whitelist.isWhitelisted(packageName)) {
+            Log.d(TAG, "pkg=$packageName candidate=$isCandidate title=\"$title\" body=\"$body\"")
+        }
+        if (!isCandidate) return
 
         channel.trySend(
             NotificationEvent(

@@ -94,20 +94,14 @@ open class GeminiNanoExtractor(
 
             CRITICAL EXTRACTION RULES:
             1. Extract the exact numerical amount literal present in the text. DO NOT perform any mathematical calculations, splits, or currency conversions.
-            2. Clean merchant/payee names (e.g. "UPI/SWIGGY/PAYTM/1234" -> "Swiggy").
-            3. Determine if it is a DEBIT (money spent/withdrawn) or CREDIT (money received/refund). Read the direction carefully: "<Person> has sent ₹X to your account" or "Money received... <Person> has sent ₹X" means YOU received the money — that is a CREDIT, even though the word "sent" appears (it describes the other party's action, not yours).
-            4. Assign the most accurate category from the allowed enum: "Food & Dining", "Groceries", "Transportation", "Shopping", "Bills & Utilities", "Rent", "Entertainment", "Health & Medical", "Investment", "Friend/Transfer", "Salary/Income", "Uncategorized".
-            5. Provide a realistic confidence_score between 0.00 and 1.00:
-               - 0.90+: Clear merchant with unambiguous category (e.g. "Swiggy", "Uber", "Netflix").
-               - 0.70-0.89: Clear debit/credit, known merchant, but broad category.
-               - Below 0.70: Generic personal transfer (e.g. "Paid Rs 500 to Ramesh Kumar"), ambiguous format, or unclear purpose.
-            6. Set "is_financial_transaction" to false for cashback credits, reward/loyalty points, promotional offers, discount/sale announcements, and marketing messages — these are NOT real bank debits/credits even if they mention an amount or use the word "credited".
-            7. Output strict JSON matching this schema exactly. No markdown outside JSON.
+            2. Clean merchant names (e.g. "UPI/ACMEMART/PAYTM/1234" -> "ACMEMART"). For a bare UPI handle (e.g. "john@okhdfc") with no business name, leave merchant_or_payee EMPTY — never invent one.
+            3. DEBIT = money spent/withdrawn. CREDIT = money received/refund. "<Person> sent ₹X to you/your account" means YOU received it — CREDIT, despite the word "sent". Banks abbreviate this "Dr."/"Cr." (e.g. "Acct XXX331 Dr. INR 10.00").
+            4. Category enum: "Food & Dining", "Groceries", "Transportation", "Shopping", "Bills & Utilities", "Rent", "Entertainment", "Health & Medical", "Investment", "Friend/Transfer", "Salary/Income", "Uncategorized".
+            5. confidence_score: 0.90+ = clear named business merchant. 0.70-0.89 = known merchant, broad category. Below 0.70 = generic transfer to a UPI handle/person, ambiguous.
+            6. is_financial_transaction=false for cashback/reward/points credits and "X% off"/sale/promo messages — these aren't real transactions even if an amount or "credited" appears.
+            7. Output strict JSON matching the schema exactly. No markdown outside JSON.
 
-            EXAMPLES OF NON-FINANCIAL (is_financial_transaction=false):
-            - "You've earned ₹50 cashback on your Swiggy order" -> promotional cashback, not a real transaction.
-            - "Congratulations! You won a reward of Rs 100. Claim now" -> promotional reward, not a real transaction.
-            - "Flat 20% off + extra 10% instant cashback on your next order" -> sale/discount announcement, not a real transaction.
+            EXAMPLE: "₹250 sent to john@okhdfc" -> {"is_financial_transaction": true, "amount": 250.0, "currency": "INR", "txn_type": "DEBIT", "merchant_or_payee": "", "account_reference": null, "category": "Uncategorized", "confidence_score": 0.4, "reasoning": ""}
         """.trimIndent()
 
         return """
@@ -117,7 +111,7 @@ open class GeminiNanoExtractor(
             Title: $title
             Body: $body
 
-            Respond with JSON only, in this shape:
+            Extract the notification above (not the example). JSON only, in this shape:
             {
               "is_financial_transaction": true,
               "amount": 0.0,
