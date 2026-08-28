@@ -94,7 +94,7 @@ open class GeminiNanoExtractor(
 
             CRITICAL EXTRACTION RULES:
             1. Extract the exact numerical amount literal present in the text. DO NOT perform any mathematical calculations, splits, or currency conversions.
-            2. Clean merchant names (e.g. "UPI/ACMEMART/PAYTM/1234" -> "ACMEMART"). For a bare UPI handle (e.g. "john@okhdfc") with no business name, leave merchant_or_payee EMPTY — never invent one.
+            2. Clean merchant names (e.g. "UPI/ACMEMART/PAYTM/1234" -> "ACMEMART"). If a person's name is given (e.g. as the notification title, like "Varun sent ₹10 to you"), use that name as merchant_or_payee with category "Friend/Transfer". For a bare UPI handle/email with no name anywhere (e.g. "john@okhdfc") leave merchant_or_payee EMPTY — never invent one.
             3. DEBIT = money spent/withdrawn. CREDIT = money received/refund. "<Person> sent ₹X to you/your account" means YOU received it — CREDIT, despite the word "sent". Banks abbreviate this "Dr."/"Cr." (e.g. "Acct XXX331 Dr. INR 10.00").
             4. Category enum: "Food & Dining", "Groceries", "Transportation", "Shopping", "Bills & Utilities", "Rent", "Entertainment", "Health & Medical", "Investment", "Friend/Transfer", "Salary/Income", "Uncategorized".
             5. confidence_score: 0.90+ = clear named business merchant. 0.70-0.89 = known merchant, broad category. Below 0.70 = generic transfer to a UPI handle/person, ambiguous.

@@ -22,6 +22,12 @@ object LiteralExtraction {
         val patterns = listOf(
             Regex("""\b(?:to|from|at|via|payee)\s+([A-Za-z0-9][A-Za-z0-9 .&'+-]{1,40}?)(?=\s+(?:via|UPI|Ref|on|from|to|at|PhonePe|Paytm|Google\s+Pay|Card|A\/c|a\/c|balance|bal|available)|[.,:](?:\s|$)|$)""", RegexOption.IGNORE_CASE),
             Regex("""UPI/([^/]{2,30})(?:/|$|\s)""", RegexOption.IGNORE_CASE),
+            // P2P push notifications commonly put the counterparty's name as the
+            // notification title, which NotificationProcessor prepends to the
+            // body — e.g. "Varun sent ₹10 to you." Only fires when "sent" is
+            // immediately after the name (not "...has been sent", which is the
+            // impersonal "Money transfer successful" shape with no name present).
+            Regex("""^([A-Za-z][A-Za-z .'-]{1,30}?)\s+(?:has\s+)?sent\b""", RegexOption.IGNORE_CASE),
         )
         for (pattern in patterns) {
             for (match in pattern.findAll(text)) {

@@ -8,6 +8,7 @@ import com.expensetracker.core.model.SourceType
 import com.expensetracker.core.model.TransactionType
 import com.expensetracker.data.repository.CategoryRepository
 import com.expensetracker.data.repository.TransactionRepository
+import com.expensetracker.extraction.DeterministicRegexExtractor
 import com.expensetracker.extraction.ExtractorChain
 import com.expensetracker.extraction.LiteralExtraction
 import com.expensetracker.extraction.TemplateCacheEngine
@@ -28,6 +29,7 @@ class NotificationProcessor @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val categoryRepository: CategoryRepository,
     private val clarificationNotifier: ClarificationNotifier,
+    private val regexExtractor: DeterministicRegexExtractor,
 ) {
 
     suspend fun process(event: NotificationEvent) {
@@ -48,13 +50,28 @@ class NotificationProcessor @Inject constructor(
                 // FR-EXTRACT-01: Try Tier 0 template cache first.
                 val cachedResult = templateCacheEngine.lookup(event.packageName, rawText)
 
-                val result = cachedResult ?: extractorChain.extract(
+                val extracted = cachedResult ?: extractorChain.extract(
                     packageName = event.packageName,
                     title = event.title,
                     body = event.body,
                     timestampEpoch = event.timestamp,
                 )
-                if (!result.isFinancialTransaction) return
+                if (!extracted.isFinancialTransaction) return
+
+                // Sanity check against the deterministic literal-copy amount computed
+                // above: a small on-device SLM can return well-formed but wrong JSON
+                // (observed echoing its own prompt's placeholder defaults — amount 0,
+                // blank merchant — instead of extracting). If the SLM says zero while
+                // the raw text plainly has a real amount, distrust its whole result and
+                // fall back to the always-reliable regex extractor for this transaction.
+                val slmLooksWrong = cachedResult == null && extracted.amount <= 0.0 && amount > 0.0
+                val result = if (slmLooksWrong) {
+                    regexExtractor.extract(event.packageName, event.title, event.body, event.timestamp)
+                        ?.takeIf { it.isFinancialTransaction }
+                        ?: extracted
+                } else {
+                    extracted
+                }
 
                 val gated = com.expensetracker.extraction.ConfidenceGating.apply(result.confidenceScore)
                 val categoryId = if (cachedResult != null) {
