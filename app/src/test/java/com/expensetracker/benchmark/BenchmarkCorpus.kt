@@ -1,7 +1,7 @@
 package com.expensetracker.benchmark
 
 /**
- * Benchmark corpus — 500+ realistic anonymized banking/UPI notifications
+ * Benchmark corpus — 1000+ realistic anonymized banking/UPI notifications
  * across Google Pay, PhonePe, Paytm, HDFC, ICICI, SBI, Axis, CRED, Amex
  * (spec §12.1 #3).
  *
@@ -74,7 +74,7 @@ object BenchmarkCorpus {
 
         // --- Google Pay (UPI) ---
         gPayMerchants.forEachIndexed { i, merchant ->
-            repeat(4) { j ->
+            repeat(8) { j ->
                 val amount = round2(50.0 + ((i * 37 + j * 53) % 4000) * 0.75 + rand.nextDouble() * 40)
                 out += Sample(
                     packageName = "com.google.android.apps.nbu.paisa.user",
@@ -90,7 +90,7 @@ object BenchmarkCorpus {
 
         // --- Google Pay credits (ambiguous personal senders → low confidence) ---
         gPayCreditSenders.forEachIndexed { i, sender ->
-            repeat(4) { j ->
+            repeat(8) { j ->
                 val amount = round2(200.0 + (i * 41 + j * 29) * 13.0)
                 out += Sample(
                     packageName = "com.google.android.apps.nbu.paisa.user",
@@ -106,7 +106,7 @@ object BenchmarkCorpus {
 
         // --- PhonePe ---
         phonePeMerchants.forEachIndexed { i, merchant ->
-            repeat(4) { j ->
+            repeat(8) { j ->
                 val amount = round2(80.0 + ((i * 29 + j * 61) % 5000) * 0.6 + rand.nextDouble() * 25)
                 out += Sample(
                     packageName = "com.phonepe.app",
@@ -122,7 +122,7 @@ object BenchmarkCorpus {
 
         // --- Paytm ---
         paytmMerchants.forEachIndexed { i, merchant ->
-            repeat(4) { j ->
+            repeat(8) { j ->
                 val amount = round2(60.0 + ((i * 17 + j * 43) % 6000) * 0.5 + rand.nextDouble() * 30)
                 out += Sample(
                     packageName = "net.one97.paytm",
@@ -139,7 +139,7 @@ object BenchmarkCorpus {
         // --- Banks (HDFC, ICICI, SBI, Axis) ---
         banks.forEachIndexed { b, bank ->
             bankMerchants.forEachIndexed { i, merchant ->
-                repeat(2) { j ->
+                repeat(4) { j ->
                     val amount = round2(150.0 + ((b * 100 + i * 23 + j * 37) % 9000) * 0.55 + rand.nextDouble() * 50)
                     out += Sample(
                         packageName = when (bank) {
@@ -161,7 +161,7 @@ object BenchmarkCorpus {
 
         // --- Amex credit card ---
         amexMerchants.forEachIndexed { i, merchant ->
-            repeat(3) { j ->
+            repeat(6) { j ->
                 val amount = round2(200.0 + ((i * 47 + j * 31) % 12000) * 0.8 + rand.nextDouble() * 100)
                 out += Sample(
                     packageName = "com.americanexpress.android.acctsvc.us",
@@ -177,7 +177,7 @@ object BenchmarkCorpus {
 
         // --- Personal UPI transfers (ambiguous → low confidence, clarify) ---
         personalTransfers.forEachIndexed { i, name ->
-            repeat(3) { j ->
+            repeat(6) { j ->
                 val amount = round2(100.0 + (i * 33 + j * 21) * 17.0)
                 out += Sample(
                     packageName = "com.google.android.apps.nbu.paisa.user",
