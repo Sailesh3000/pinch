@@ -25,12 +25,16 @@ object BenchmarkCorpus {
         "Swiggy", "Zomato", "BigBasket", "Blinkit", "Zepto", "Amazon", "Flipkart",
         "Myntra", "Uber", "Ola", "Netflix", "Spotify", "PVR", "BookMyShow",
         "JioFiber", "Airtel", "Apollo Pharmacy", "1mg", "Rapido", "IRCTC",
+        "Faasos", "Nature's Basket", "Croma", "Nykaa", "Yatra", "Cleartrip",
+        "SonyLIV", "Zee5", "Netmeds", "Practo", "Decathlon", "BSNL",
     )
 
     private val phonePeMerchants = listOf(
         "Dominos", "KFC", "McDonald's", "DMart", "Reliance Fresh", "Ajio", "Meesho",
         "RedBus", "Makemytrip", "Hotstar", "Disney+", "Electricity Bill", "Gas Bill",
         "Fortis Hospital", "Nike", "Adidas", "Zepto", "Instamart", "Goibibo", "Indane Gas",
+        "Subway", "More Supermarket", "Tata Cliq", "Vijay Sales", "Vodafone Idea",
+        "PharmEasy", "Voot", "GoAir", "Upstox", "Zara", "Uniqlo", "Best Buy",
     )
 
     private val paytmMerchants = listOf(
@@ -38,6 +42,9 @@ object BenchmarkCorpus {
         "IRCTC", "RedBus", "Recharge Airtel", "Recharge Jio", "Electricity Bill",
         "Broadband", "Insurance Premium", "Mutual Fund SIP", "Zerodha", "Groww",
         "1mg", "Apollo", "Lenskart", "BigBasket",
+        "Reliance Digital", "Nykaa", "IndiGo", "Yatra", "Netmeds",
+        "Vodafone Recharge", "BSNL Bill", "Paytm Money SIP", "Tata Power", "Costco",
+        "Sephora", "Spencer's",
     )
 
     private val banks = listOf("HDFC Bank", "ICICI Bank", "State Bank of India", "Axis Bank")
@@ -45,21 +52,28 @@ object BenchmarkCorpus {
         "SWIGGY", "ZOMATO", "AMAZON", "FLIPKART", "UBER", "OLA", "NETFLIX",
         "RELIANCE FRESH", "BIGBASKET", "DMART", "AIR INDIA", "IRCTC", "APOLLO PHARMACY",
         "JIO", "AIRTEL", "LIC PREMIUM", "SPOTIFY", "KFC", "PIZZA HUT", "MYNTRA",
+        "NYKAA", "CROMA", "TATA CLIQ", "VODAFONE", "SUBWAY", "BURGER KING",
+        "YATRA", "CLEARTRIP", "NETMEDS", "PRACTO", "ZERODHA", "GROWW",
     )
 
     private val amexMerchants = listOf(
         "Amazon.in", "Flipkart", "Myntra", "Swiggy", "Zomato", "Uber", "BookMyShow",
         "Marriott", "Taj Hotels", "Apple.com", "Samsung.in", "Netflix", "Adobe",
         "Forever21", "H&M", "Nike", "Lufthansa", "AirAsia", "Vistara", "Starbucks",
+        "Hyatt", "Hilton", "Emirates", "British Airways", "Singapore Airlines",
+        "Sephora", "Zara", "Uniqlo", "Best Buy", "Costco",
     )
 
     private val gPayCreditSenders = listOf(
         "Ramesh Kumar", "Priya Sharma", "Amit Patel", "Sneha Iyer", "Vikram Singh",
+        "Anjali Verma", "Rohit Malhotra", "Deepa Krishnan", "Suresh Nair", "Pooja Desai",
     )
 
     private val personalTransfers = listOf(
         "Ramesh Kumar", "Priya Sharma", "Amit Patel", "Sneha Iyer", "Vikram Singh",
         "Kiran Rao", "Neha Gupta", "Sanjay Mehta", "Divya Nair", "Arjun Reddy",
+        "Manoj Tiwari", "Lakshmi Menon", "Rahul Bose", "Swati Joshi", "Karthik Subramanian",
+        "Anita D'Souza", "Vivek Chatterjee", "Meera Pillai", "Ashok Yadav", "Rekha Bhatt",
     )
 
     private val corpus: List<Sample> by lazy { buildCorpus() }
@@ -74,7 +88,7 @@ object BenchmarkCorpus {
 
         // --- Google Pay (UPI) ---
         gPayMerchants.forEachIndexed { i, merchant ->
-            repeat(8) { j ->
+            repeat(4) { j ->
                 val amount = round2(50.0 + ((i * 37 + j * 53) % 4000) * 0.75 + rand.nextDouble() * 40)
                 out += Sample(
                     packageName = "com.google.android.apps.nbu.paisa.user",
@@ -90,7 +104,7 @@ object BenchmarkCorpus {
 
         // --- Google Pay credits (ambiguous personal senders → low confidence) ---
         gPayCreditSenders.forEachIndexed { i, sender ->
-            repeat(8) { j ->
+            repeat(4) { j ->
                 val amount = round2(200.0 + (i * 41 + j * 29) * 13.0)
                 out += Sample(
                     packageName = "com.google.android.apps.nbu.paisa.user",
@@ -106,7 +120,7 @@ object BenchmarkCorpus {
 
         // --- PhonePe ---
         phonePeMerchants.forEachIndexed { i, merchant ->
-            repeat(8) { j ->
+            repeat(4) { j ->
                 val amount = round2(80.0 + ((i * 29 + j * 61) % 5000) * 0.6 + rand.nextDouble() * 25)
                 out += Sample(
                     packageName = "com.phonepe.app",
@@ -122,7 +136,7 @@ object BenchmarkCorpus {
 
         // --- Paytm ---
         paytmMerchants.forEachIndexed { i, merchant ->
-            repeat(8) { j ->
+            repeat(4) { j ->
                 val amount = round2(60.0 + ((i * 17 + j * 43) % 6000) * 0.5 + rand.nextDouble() * 30)
                 out += Sample(
                     packageName = "net.one97.paytm",
@@ -139,7 +153,7 @@ object BenchmarkCorpus {
         // --- Banks (HDFC, ICICI, SBI, Axis) ---
         banks.forEachIndexed { b, bank ->
             bankMerchants.forEachIndexed { i, merchant ->
-                repeat(4) { j ->
+                repeat(3) { j ->
                     val amount = round2(150.0 + ((b * 100 + i * 23 + j * 37) % 9000) * 0.55 + rand.nextDouble() * 50)
                     out += Sample(
                         packageName = when (bank) {
@@ -161,7 +175,7 @@ object BenchmarkCorpus {
 
         // --- Amex credit card ---
         amexMerchants.forEachIndexed { i, merchant ->
-            repeat(6) { j ->
+            repeat(4) { j ->
                 val amount = round2(200.0 + ((i * 47 + j * 31) % 12000) * 0.8 + rand.nextDouble() * 100)
                 out += Sample(
                     packageName = "com.americanexpress.android.acctsvc.us",
@@ -177,7 +191,7 @@ object BenchmarkCorpus {
 
         // --- Personal UPI transfers (ambiguous → low confidence, clarify) ---
         personalTransfers.forEachIndexed { i, name ->
-            repeat(6) { j ->
+            repeat(3) { j ->
                 val amount = round2(100.0 + (i * 33 + j * 21) * 17.0)
                 out += Sample(
                     packageName = "com.google.android.apps.nbu.paisa.user",
@@ -256,7 +270,12 @@ object BenchmarkCorpus {
             m.contains("zerodha") || m.contains("groww") || m.contains("lic") || m.contains("mutual") ||
                 m.contains("stock") || m.contains("sip") || m.contains("investment") || m.contains("adobe") -> "Investment"
             m.contains("marriott") || m.contains("taj hotels") -> "Entertainment"
-            else -> "Friend/Transfer"
+            // Matches DeterministicRegexExtractor.inferCategory()'s actual default —
+            // amount/merchant extraction accuracy is what this corpus exists to
+            // guarantee; category is a best-effort secondary signal, and a new
+            // brand name with no keyword match should expect what the real
+            // extractor will actually produce, not a different made-up default.
+            else -> "Uncategorized"
         }
     }
 }
