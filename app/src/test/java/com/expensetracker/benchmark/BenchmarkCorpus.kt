@@ -208,6 +208,17 @@ object BenchmarkCorpus {
         // --- P2P transfer: counterparty's name is the notification title, not a business ---
         out += Sample("com.phonepe.app", "Varun", "sent ₹10 to you.", 10.0, "Varun", "Uncategorized", "CREDIT")
 
+        // --- Abbreviated bank SMS shorthand: "Dr./Cr." + "Acct XXX###", semicolon-delimited
+        // clauses. Real-world format (this exact message was captured on-device and failed
+        // extraction before the Dr./Cr./Acct/semicolon fixes this session) — underrepresented
+        // vs. the explicit "debited"/"credited" wording most other samples use. ---
+        out += Sample("com.google.android.apps.messaging", "AX-CANBNK-S", "Dear Customer, Acct XXX331 Dr. INR 10.00 on 26/08/26 to KONDAPURAM V; UPI: 669992992861; Bal INR 1,261.97.Not you?SMS BLOCKUPI to 9901771222-CanaraBank", 10.0, "KONDAPURAM V", "Uncategorized", "DEBIT")
+        out += Sample("com.google.android.apps.messaging", "SBIINB-S", "Dear Customer, Acct **5567 Cr. INR 2500.00 on 15/03/26 by NEFT from RAVI KUMAR SHARMA; Ref: 887766554; Avl Bal INR 45,230.00-SBI", 2500.0, "RAVI KUMAR SHARMA", "Uncategorized", "CREDIT")
+        out += Sample("com.google.android.apps.messaging", "AXISBK-S", "Acct XX7788 Dr. INR 2000.00 on 02/01/26 ATM Cash Wdl; Avl Bal INR 8,500.00-Axis Bank", 2000.0, "", "Uncategorized", "DEBIT")
+        out += Sample("com.google.android.apps.messaging", "UNIONBK-S", "Acct XXX219 Dr. INR 450.00 on 10/02/26 to SWIGGY BANGALORE; UPI: 445566778899; Avl Bal INR 3,200.00-Union Bank", 450.0, "SWIGGY BANGALORE", "Food & Dining", "DEBIT")
+        out += Sample("com.google.android.apps.messaging", "ICICIB-S", "Acct XX3345 Cr. INR 599.00 on 05/04/26 REFUND FROM AMAZON; Ref: 991122334; Avl Bal INR 12,340.00-ICICI Bank", 599.0, "AMAZON", "Shopping", "CREDIT")
+        out += Sample("com.google.android.apps.messaging", "HDFCBK-S", "Card XX4521 Dr. INR 1200.00 on 20/05/26 at DMART; Avl Bal INR 6,780.00-HDFC Bank", 1200.0, "DMART", "Groceries", "DEBIT")
+
         // --- Non-financial ad/promo SMS that quote a price but have no transaction verb ---
         out += Sample("com.google.android.apps.messaging", "AD-650025-P", "The wait is over! Watch India vs Sri Lanka on Sony LIV this Independence Day. Get Box Office Pack and enjoy 20+ OTTs at Rs. 200. Recharge now.", 0.0, "", "Uncategorized", "NON_FINANCIAL")
         out += Sample("com.phonepe.app", "Daily RD", "Turn ₹100/day into ₹37,611*! Set up Daily RD to maximize your savings with assured returns. Start saving now.", 0.0, "", "Uncategorized", "NON_FINANCIAL")

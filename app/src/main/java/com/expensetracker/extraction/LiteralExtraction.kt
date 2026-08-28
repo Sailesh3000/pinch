@@ -7,20 +7,30 @@ package com.expensetracker.extraction
  */
 object LiteralExtraction {
 
-    private val amountPattern = Regex(
-        """(?:[₹$€£]|(?:INR|Rs\.?|USD|EUR|GBP)\s*)?(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)""",
+    // Currency-anchored amounts are tried first regardless of position in the
+    // string. A bare digit run with no currency prefix is only trusted as a
+    // fallback, and only with a decimal point — real bank SMS almost always
+    // prefixes the amount with INR/Rs/₹, so an un-prefixed bare INTEGER is far
+    // more likely to be a masked account/reference number (e.g. "Acct XXX331")
+    // than a real amount; requiring a decimal + a non-alphanumeric boundary
+    // avoids grabbing digits embedded in such tokens.
+    private val currencyAnchoredAmount = Regex(
+        """(?:[₹$€£]|(?:INR|Rs\.?|USD|EUR|GBP))\s*(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)""",
         RegexOption.IGNORE_CASE
+    )
+    private val bareDecimalAmount = Regex(
+        """(?<![A-Za-z0-9])(\d{1,3}(?:,\d{3})+\.\d{1,2}|\d+\.\d{1,2})"""
     )
 
     fun firstAmount(text: String): Double? {
-        val match = amountPattern.find(text) ?: return null
+        val match = currencyAnchoredAmount.find(text) ?: bareDecimalAmount.find(text) ?: return null
         val raw = match.groupValues[1].replace(",", "")
         return raw.toDoubleOrNull()
     }
 
     fun merchantOrPayee(text: String): String? {
         val patterns = listOf(
-            Regex("""\b(?:to|from|at|via|payee)\s+([A-Za-z0-9][A-Za-z0-9 .&'+-]{1,40}?)(?=\s+(?:via|UPI|Ref|on|from|to|at|PhonePe|Paytm|Google\s+Pay|Card|A\/c|a\/c|balance|bal|available)|[.,:](?:\s|$)|$)""", RegexOption.IGNORE_CASE),
+            Regex("""\b(?:to|from|at|via|payee)\s+([A-Za-z0-9][A-Za-z0-9 .&'+-]{1,40}?)(?=\s+(?:via|UPI|Ref|on|from|to|at|PhonePe|Paytm|Google\s+Pay|Card|A\/c|a\/c|balance|bal|available)|[.,:;](?:\s|$)|$)""", RegexOption.IGNORE_CASE),
             Regex("""UPI/([^/]{2,30})(?:/|$|\s)""", RegexOption.IGNORE_CASE),
             // P2P push notifications commonly put the counterparty's name as the
             // notification title, which NotificationProcessor prepends to the
