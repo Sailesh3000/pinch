@@ -173,12 +173,18 @@ class ModelDownloader @Inject constructor(
 
     companion object {
         private const val TAG = "ModelDownloader"
-        const val MODEL_FILENAME = "qwen2.5-0.5b-instruct.task"
+        // New filename (not the base model's) so isModelPresent/modelPath key off
+        // this artifact specifically — existing installs with the old file
+        // cached under the old name correctly see it as absent and re-download.
+        const val MODEL_FILENAME = "qwen2.5-0.5b-pinch-finetuned.litertlm"
         private const val BUFFER_SIZE = 64 * 1024 // 64 KB
         private const val MIN_MODEL_SIZE_BYTES = 50_000_000L // 50 MB sanity check
 
-        // Qwen2.5-0.5B-Instruct — freely downloadable, no HuggingFace auth required
+        // Fine-tuned on BenchmarkCorpus (1000+ synthetic bank/UPI notifications,
+        // minimal-prompt SFT format — see MediaPipeExtractor.buildPrompt) to fix
+        // the base model's amount/merchant hallucinations. Freely downloadable,
+        // no HuggingFace auth required (public repo, synthetic training data).
         const val MODEL_URL =
-            "https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct/resolve/main/Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task"
+            "https://huggingface.co/Sailesh3000/pinch_qwen2.5_0.5b_finetuned/resolve/main/qwen-pinch.litertlm"
     }
 }

@@ -14,7 +14,12 @@ class ModelDownloaderTest {
 
     @Test
     fun `model filename constant matches expected value`() {
-        assertEquals("qwen2.5-0.5b-instruct.task", CapabilityDetector.MODEL_FILENAME)
+        assertEquals("qwen2.5-0.5b-pinch-finetuned.litertlm", CapabilityDetector.MODEL_FILENAME)
+    }
+
+    @Test
+    fun `model filename is consistent between ModelDownloader and CapabilityDetector`() {
+        assertEquals(ModelDownloader.MODEL_FILENAME, CapabilityDetector.MODEL_FILENAME)
     }
 
     @Test
@@ -24,8 +29,8 @@ class ModelDownloaderTest {
             ModelDownloader.MODEL_URL.startsWith("https://huggingface.co/")
         )
         assertTrue(
-            "URL should reference Qwen2.5-0.5B",
-            ModelDownloader.MODEL_URL.contains("Qwen2.5-0.5B-Instruct")
+            "URL should reference the fine-tuned model",
+            ModelDownloader.MODEL_URL.contains("pinch")
         )
     }
 

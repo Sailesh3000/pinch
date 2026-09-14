@@ -48,7 +48,7 @@ class CapabilityDetector @Inject constructor(
     }
 
     companion object {
-        const val MODEL_FILENAME = "qwen2.5-0.5b-instruct.task"
+        const val MODEL_FILENAME = "qwen2.5-0.5b-pinch-finetuned.litertlm"
         private const val MIN_MODEL_SIZE_BYTES = 50_000_000L // 50 MB sanity check
     }
 }

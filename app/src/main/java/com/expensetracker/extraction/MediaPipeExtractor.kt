@@ -179,42 +179,13 @@ open class MediaPipeExtractor(
         return cleaned.substring(start, end + 1)
     }
 
+    // Minimal input — matches the SFT dataset this model was fine-tuned on
+    // exactly (see DatasetExportTest.kt's buildMinimalPrompt). Fine-tuning
+    // bakes the extraction rules into the weights instead of re-explaining
+    // them every call, so this model gets the short form; GeminiNanoExtractor
+    // (never fine-tuned, can't be) keeps the full zero-shot instruction prompt.
     private fun buildPrompt(packageName: String, title: String, body: String): String {
-        val system = """
-            You are an on-device financial transaction parser. Your task is to extract structured transaction data from raw Android notification text emitted by banking apps, UPI payment systems (Google Pay, PhonePe, Paytm, CRED), credit card alerts, and bank SMS messages.
-
-            CRITICAL EXTRACTION RULES:
-            1. Extract the exact numerical amount literal present in the text. DO NOT perform any mathematical calculations, splits, or currency conversions.
-            2. Clean merchant names (e.g. "UPI/ACMEMART/PAYTM/1234" -> "ACMEMART"). If a person's name is given (e.g. as the notification title, like "Varun sent ₹10 to you"), use that name as merchant_or_payee with category "Friend/Transfer". For a bare UPI handle/email with no name anywhere (e.g. "john@okhdfc") leave merchant_or_payee EMPTY — never invent one.
-            3. DEBIT = money spent/withdrawn. CREDIT = money received/refund. "<Person> sent ₹X to you/your account" means YOU received it — CREDIT, despite the word "sent". Banks abbreviate this "Dr."/"Cr." (e.g. "Acct XXX331 Dr. INR 10.00").
-            4. Category enum: "Food & Dining", "Groceries", "Transportation", "Shopping", "Bills & Utilities", "Rent", "Entertainment", "Health & Medical", "Investment", "Friend/Transfer", "Salary/Income", "Uncategorized".
-            5. confidence_score: 0.90+ = clear named business merchant. 0.70-0.89 = known merchant, broad category. Below 0.70 = generic transfer to a UPI handle/person, ambiguous.
-            6. is_financial_transaction=false for cashback/reward/points credits and "X% off"/sale/promo messages — these aren't real transactions even if an amount or "credited" appears.
-            7. Output strict JSON matching the schema exactly. No markdown outside JSON.
-
-            EXAMPLE: "₹250 sent to john@okhdfc" -> {"is_financial_transaction": true, "amount": 250.0, "currency": "INR", "txn_type": "DEBIT", "merchant_or_payee": "", "account_reference": null, "category": "Uncategorized", "confidence_score": 0.4, "reasoning": ""}
-        """.trimIndent()
-
-        return """
-            $system
-
-            Notification source package: $packageName
-            Title: $title
-            Body: $body
-
-            Extract the notification above (not the example). JSON only, in this shape:
-            {
-              "is_financial_transaction": true,
-              "amount": 0.0,
-              "currency": "INR",
-              "txn_type": "DEBIT",
-              "merchant_or_payee": "",
-              "account_reference": null,
-              "category": "Uncategorized",
-              "confidence_score": 0.0,
-              "reasoning": ""
-            }
-        """.trimIndent()
+        return "Categories: $CATEGORY_LIST\nNotification (pkg=$packageName): $title $body\nJSON:"
     }
 
     fun close() {
@@ -226,5 +197,7 @@ open class MediaPipeExtractor(
         private const val TAG = "MediaPipeExtractor"
         private const val MAX_TOKENS = 1024
         private const val TIMEOUT_SECONDS = 30L
+        private const val CATEGORY_LIST = "Food & Dining, Groceries, Transportation, Shopping, Bills & Utilities, " +
+            "Rent, Entertainment, Health & Medical, Investment, Friend/Transfer, Salary/Income, Uncategorized"
     }
 }
