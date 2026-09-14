@@ -69,6 +69,36 @@ class SettingsViewModel @Inject constructor(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
+    init {
+        // Observe the (singleton) ModelDownloader's real state from the moment this
+        // ViewModel is created, not just from inside downloadModel() — otherwise a
+        // ViewModel recreated while a download is already in flight (e.g. navigating
+        // away from and back to Settings) has no idea a download is running, shows
+        // "Download"/"Retry" again, and a tap re-enqueues on top of the real one.
+        viewModelScope.launch {
+            modelDownloader.state.collect { state ->
+                when (state) {
+                    is ModelDownloader.DownloadState.Downloading -> {
+                        modelDownloading.value = true
+                        modelDownloadProgress.value = state.progressPercent
+                    }
+                    is ModelDownloader.DownloadState.Complete -> {
+                        modelDownloading.value = false
+                        modelDownloadProgress.value = 100
+                        downloadError.value = null
+                        refreshAiStatus()
+                    }
+                    is ModelDownloader.DownloadState.Failed -> {
+                        modelDownloading.value = false
+                        modelDownloadProgress.value = -1
+                        downloadError.value = state.message
+                    }
+                    else -> {}
+                }
+            }
+        }
+    }
+
     fun refreshPermissionStatus(enabled: Boolean) {
         listenerEnabled.value = enabled
     }
@@ -88,34 +118,15 @@ class SettingsViewModel @Inject constructor(
         downloadError.value = null
 
         val request = OneTimeWorkRequestBuilder<ModelDownloadWorker>().build()
+        // KEEP, not REPLACE: if a download is already enqueued/running (including one
+        // started by a since-recreated ViewModel instance), leave it alone rather than
+        // cancelling and restarting it — that cancel-and-restart loop is exactly what
+        // was happening before, visible as the download failing within ~1s every time.
         WorkManager.getInstance(context).enqueueUniqueWork(
             ModelDownloadWorker.WORK_NAME,
-            ExistingWorkPolicy.REPLACE,
+            ExistingWorkPolicy.KEEP,
             request,
         )
-
-        // Observe download state
-        viewModelScope.launch {
-            modelDownloader.state.collect { state ->
-                when (state) {
-                    is ModelDownloader.DownloadState.Downloading -> {
-                        modelDownloadProgress.value = state.progressPercent
-                    }
-                    is ModelDownloader.DownloadState.Complete -> {
-                        modelDownloading.value = false
-                        modelDownloadProgress.value = 100
-                        downloadError.value = null
-                        refreshAiStatus()
-                    }
-                    is ModelDownloader.DownloadState.Failed -> {
-                        modelDownloading.value = false
-                        modelDownloadProgress.value = -1
-                        downloadError.value = state.message
-                    }
-                    else -> {}
-                }
-            }
-        }
     }
 
     fun setPackageEnabled(packageName: String, enabled: Boolean) {
