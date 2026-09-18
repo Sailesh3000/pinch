@@ -1,7 +1,15 @@
 package com.expensetracker.extraction
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
+import androidx.annotation.VisibleForTesting
+import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -11,22 +19,23 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
- * Downloads a quantized .task model from HuggingFace to internal storage.
+ * Downloads a quantized .litertlm model to internal storage.
  * One-time download; subsequent calls are no-ops if the file already exists.
- * Uses Qwen2.5-0.5B-Instruct (freely downloadable, no auth required).
- * Requires INTERNET permission (spec §9.1 — user consent via first-run dialog).
+ * Requires INTERNET permission (spec section 9.1, user consent via first-run dialog).
+ *
+ * Resilience for the ~547 MB model over mobile connections:
+ *  - Partial downloads survive interruption: if a `.tmp` file exists, the next
+ *    attempt sends `Range: bytes=<size>-` and appends instead of restarting.
+ *  - Multiple mirror URLs are tried in order when a source fails.
  */
 @Singleton
 class ModelDownloader @Inject constructor(
     private val context: Context,
+    @get:VisibleForTesting
+    internal val downloadUrls: List<String> = listOf(MODEL_URL) + FALLBACK_MODEL_URLS,
+    private val modelAssetProvider: ModelAssetProvider? = null,
 ) {
 
     private val _state = MutableStateFlow<DownloadState>(DownloadState.Idle)
@@ -49,10 +58,18 @@ class ModelDownloader @Inject constructor(
         }
 
     /**
-     * Triggers download if model is not already present.
-     * Returns immediately if model exists.
+     * Candidate sources, primary first (constructed via the default parameter).
+     * Primary: HuggingFace (fine-tuned Qwen2.5-0.5B).
+     * Mirrors: GitHub Releases on the pinch repo + a HuggingFace mirror CDN.
      */
+
+    /** Triggers download if the model is not already present. */
     suspend fun downloadIfNeeded(): DownloadState {
+        // PAD-delivered model (Play Store installs): nothing to download.
+        if (modelAssetProvider?.isAvailable() == true) {
+            _state.value = DownloadState.Complete
+            return DownloadState.Complete
+        }
         if (isModelPresent) {
             _state.value = DownloadState.Complete
             return DownloadState.Complete
@@ -61,8 +78,7 @@ class ModelDownloader @Inject constructor(
     }
 
     /**
-     * Downloads the .task file from HuggingFace.
-     * Follows redirects (HuggingFace uses 302 → CDN) and validates response code.
+     * Downloads the model, trying every mirror URL in order.
      * Single-flight: concurrent callers serialize on a mutex so two downloads
      * never write the same temp file simultaneously.
      */
@@ -74,90 +90,133 @@ class ModelDownloader @Inject constructor(
 
         withContext(Dispatchers.IO) {
             _state.value = DownloadState.Downloading(0)
-            var connection: HttpURLConnection? = null
-            try {
-                val url = URL(MODEL_URL)
-                connection = url.openConnection() as HttpURLConnection
-                connection.connectTimeout = 30_000
-                connection.readTimeout = 120_000
-                connection.instanceFollowRedirects = true
-                connection.setRequestProperty("User-Agent", "ExpenseTracker/0.1.0")
-                connection.connect()
-
-                val responseCode = connection.responseCode
-                if (responseCode !in 200..299) {
-                    val msg = "HTTP $responseCode: ${connection.responseMessage ?: "error"}"
-                    Log.e(TAG, "Download failed: $msg")
-                    _state.value = DownloadState.Failed(msg)
-                    return@withContext DownloadState.Failed(msg)
+            var lastError: String? = null
+            for (url in downloadUrls) {
+                val attempt = attemptDownload(url)
+                if (attempt is DownloadState.Complete) {
+                    _state.value = DownloadState.Complete
+                    return@withContext DownloadState.Complete
                 }
+                if (attempt is DownloadState.Failed) {
+                    lastError = attempt.message
+                    Log.w(TAG, "Download from ${Uri.parse(url).host} failed: ${attempt.message}")
+                }
+            }
+            val msg = lastError ?: "Download failed from all mirrors"
+            _state.value = DownloadState.Failed(msg)
+            DownloadState.Failed(msg)
+        }
+    }
 
-                val totalBytes = connection.contentLength.toLong()
-                Log.d(TAG, "Starting download: ${totalBytes / 1_048_576} MB expected")
-                val outputFile = File(context.filesDir, MODEL_FILENAME)
-                val tmpFile = File(context.filesDir, "$MODEL_FILENAME.tmp")
-                if (tmpFile.exists()) tmpFile.delete() // clear any stale partial file
+    /**
+     * Downloads from a single URL, resuming from any existing `.tmp` file via
+     * an HTTP `Range` request. A 416 response (range unsatisfiable) deletes the
+     * stale temp file and retries the full download once against the same URL.
+     */
+    private suspend fun attemptDownload(
+        urlString: String,
+        allowFullRestart: Boolean = true,
+    ): DownloadState {
+        var connection: HttpURLConnection? = null
+        try {
+            val tmpFile = File(context.filesDir, "$MODEL_FILENAME.tmp")
+            val existingSize = if (tmpFile.exists()) tmpFile.length() else 0L
 
-                connection.inputStream.use { input ->
-                    FileOutputStream(tmpFile).use { output ->
-                        val buffer = ByteArray(BUFFER_SIZE)
-                        var bytesRead: Int
-                        var accumulated = 0L
+            val url = URL(urlString)
+            connection = url.openConnection() as HttpURLConnection
+            connection.connectTimeout = 30_000
+            connection.readTimeout = 120_000
+            connection.instanceFollowRedirects = true
+            connection.setRequestProperty("User-Agent", "ExpenseTracker/0.1.0")
+            if (existingSize > 0L) {
+                connection.setRequestProperty("Range", "bytes=$existingSize-")
+            }
+            connection.connect()
 
-                        while (input.read(buffer).also { bytesRead = it } != -1) {
-                            // Abort promptly if the owning worker is cancelled.
-                            currentCoroutineContext().ensureActive()
-                            output.write(buffer, 0, bytesRead)
-                            accumulated += bytesRead
-                            val progress = if (totalBytes > 0) {
-                                (accumulated * 100 / totalBytes).toInt()
-                            } else {
-                                -1 // indeterminate
-                            }
-                            // Throttle state updates to avoid excessive recomposition
-                            if (progress == -1 || accumulated % (BUFFER_SIZE * 10) == 0L || accumulated == totalBytes) {
-                                _state.value = DownloadState.Downloading(progress)
-                            }
+            val responseCode = connection.responseCode
+            if (responseCode == 416 && allowFullRestart) {
+                Log.i(TAG, "Range not satisfiable; restarting full download")
+                connection.disconnect()
+                tmpFile.delete()
+                return attemptDownload(urlString, allowFullRestart = false)
+            }
+            if (responseCode !in 200..299) {
+                val msg = "HTTP $responseCode: ${connection.responseMessage ?: "error"}"
+                Log.e(TAG, "Download failed at ${url.host}: $msg")
+                return DownloadState.Failed(msg)
+            }
+
+            val resuming = responseCode == 206 && existingSize > 0L
+            val remaining = connection.contentLengthLong
+            val totalFromRange = contentRangeTotal(connection.getHeaderField("Content-Range"))
+            val totalBytes = when {
+                remaining > 0L && totalFromRange != null -> totalFromRange
+                remaining > 0L -> if (resuming) existingSize + remaining else remaining
+                else -> -1L // indeterminate
+            }
+            Log.d(TAG, "Downloading from ${url.host}: resume=$resuming existing=$existingSize")
+
+            // Offset so a resumed download still reports 0..100 across the whole file.
+            var accumulated = existingSize
+            connection.inputStream.use { input ->
+                FileOutputStream(tmpFile, resuming).use { output ->
+                    val buffer = ByteArray(BUFFER_SIZE)
+                    var bytesRead: Int
+                    while (input.read(buffer).also { bytesRead = it } != -1) {
+                        currentCoroutineContext().ensureActive()
+                        output.write(buffer, 0, bytesRead)
+                        accumulated += bytesRead
+                        val progress = if (totalBytes > 0) {
+                            (accumulated * 100 / totalBytes).toInt().coerceIn(0, 100)
+                        } else {
+                            -1 // indeterminate
+                        }
+                        if (progress == -1 || accumulated % (BUFFER_SIZE * 10) == 0L ||
+                            (totalBytes > 0 && accumulated >= totalBytes)
+                        ) {
+                            _state.value = DownloadState.Downloading(progress)
                         }
                     }
                 }
-
-                // Validate minimum file size
-                if (tmpFile.length() < MIN_MODEL_SIZE_BYTES) {
-                    Log.e(TAG, "Downloaded file too small: ${tmpFile.length()} bytes")
-                    tmpFile.delete()
-                    _state.value = DownloadState.Failed("Downloaded file incomplete")
-                    return@withContext DownloadState.Failed("Downloaded file incomplete")
-                }
-
-                // Atomic rename on success
-                if (outputFile.exists()) outputFile.delete()
-                val renamed = tmpFile.renameTo(outputFile)
-                if (!renamed) {
-                    tmpFile.copyTo(outputFile, overwrite = true)
-                    tmpFile.delete()
-                }
-
-                Log.d(TAG, "Model downloaded: ${outputFile.length()} bytes")
-                _state.value = DownloadState.Complete
-                DownloadState.Complete
-            } catch (e: Exception) {
-                Log.e(TAG, "Model download failed", e)
-                val tmpFile = File(context.filesDir, "$MODEL_FILENAME.tmp")
-                if (tmpFile.exists()) tmpFile.delete()
-                val msg = when {
-                    e.message?.contains("401") == true -> "Access denied — model requires license acceptance"
-                    e.message?.contains("404") == true -> "Model not found at URL"
-                    e.message?.contains("timeout", true) == true -> "Download timed out — check internet connection"
-                    e.message?.contains("connect", true) == true -> "Cannot connect — check internet connection"
-                    else -> e.message ?: "Unknown error"
-                }
-                _state.value = DownloadState.Failed(msg)
-                DownloadState.Failed(msg)
-            } finally {
-                connection?.disconnect()
             }
+
+            if (tmpFile.length() < MIN_MODEL_SIZE_BYTES) {
+                Log.e(TAG, "Downloaded file too small: ${tmpFile.length()} bytes")
+                tmpFile.delete()
+                return DownloadState.Failed("Downloaded file incomplete")
+            }
+
+            val outputFile = File(context.filesDir, MODEL_FILENAME)
+            if (outputFile.exists()) outputFile.delete()
+            val renamed = tmpFile.renameTo(outputFile)
+            if (!renamed) {
+                tmpFile.copyTo(outputFile, overwrite = true)
+                tmpFile.delete()
+            }
+
+            Log.d(TAG, "Model downloaded (${url.host}): ${outputFile.length()} bytes")
+            return DownloadState.Complete
+        } catch (e: Exception) {
+            Log.e(TAG, "Model download failed", e)
+            val msg = when {
+                e.message?.contains("401") == true -> "Access denied; model requires license acceptance"
+                e.message?.contains("404") == true -> "Model not found at URL"
+                e.message?.contains("timeout", true) == true -> "Download timed out; check internet connection"
+                e.message?.contains("connect", true) == true -> "Cannot connect; check internet connection"
+                else -> e.message ?: "Unknown error"
+            }
+            return DownloadState.Failed(msg)
+        } finally {
+            connection?.disconnect()
         }
+    }
+
+    /** Parses "bytes 0-999/1234567" to 1234567, or null when absent. */
+    private fun contentRangeTotal(contentRange: String?): Long? {
+        if (contentRange.isNullOrBlank()) return null
+        val slash = contentRange.lastIndexOf('/')
+        if (slash < 0) return null
+        return contentRange.substring(slash + 1).toLongOrNull()?.takeIf { it > 0 }
     }
 
     fun resetState() {
@@ -173,18 +232,29 @@ class ModelDownloader @Inject constructor(
 
     companion object {
         private const val TAG = "ModelDownloader"
+
         // New filename (not the base model's) so isModelPresent/modelPath key off
-        // this artifact specifically — existing installs with the old file
+        // this artifact specifically - existing installs with the old file
         // cached under the old name correctly see it as absent and re-download.
         const val MODEL_FILENAME = "qwen2.5-0.5b-pinch-finetuned.litertlm"
         private const val BUFFER_SIZE = 64 * 1024 // 64 KB
         private const val MIN_MODEL_SIZE_BYTES = 50_000_000L // 50 MB sanity check
 
         // Fine-tuned on BenchmarkCorpus (1000+ synthetic bank/UPI notifications,
-        // minimal-prompt SFT format — see MediaPipeExtractor.buildPrompt) to fix
+        // minimal-prompt SFT format - see MediaPipeExtractor.buildPrompt) to fix
         // the base model's amount/merchant hallucinations. Freely downloadable,
         // no HuggingFace auth required (public repo, synthetic training data).
         const val MODEL_URL =
             "https://huggingface.co/Sailesh3000/pinch_qwen2.5_0.5b_finetuned/resolve/main/qwen-pinch.litertlm"
+
+        /**
+         * Mirror sources tried automatically when [MODEL_URL] fails
+         * (Step 9 model-hosting redundancy). Order: GitHub Releases on the
+         * pinch repo, then a HuggingFace mirror CDN.
+         */
+        val FALLBACK_MODEL_URLS = listOf(
+            "https://github.com/Sailesh3000/pinch/releases/download/v0.1.0/qwen-pinch.litertlm",
+            "https://hf-mirror.com/Sailesh3000/pinch_qwen2.5_0.5b_finetuned/resolve/main/qwen-pinch.litertlm",
+        )
     }
 }

@@ -38,6 +38,17 @@ interface TransactionDao {
     )
     fun observeAll(): Flow<List<TransactionWithCategory>>
 
+    /** One-shot, non-reactive dump of every transaction (used for CSV export). */
+    @Query(
+        """
+        SELECT t.*, c.name AS category_name, c.icon_key AS category_icon_key, c.color_hex AS category_color_hex
+        FROM transactions t
+        LEFT JOIN categories c ON t.category_id = c.id
+        ORDER BY t.timestamp ASC, t.id ASC
+        """
+    )
+    suspend fun getAllOnce(): List<TransactionWithCategory>
+
     @Query(
         """
         SELECT t.*, c.name AS category_name, c.icon_key AS category_icon_key, c.color_hex AS category_color_hex

@@ -8,7 +8,11 @@ import com.expensetracker.core.model.ConfidenceTier
 import com.expensetracker.core.model.SourceType
 import com.expensetracker.core.model.Transaction
 import com.expensetracker.core.model.TransactionType
+import java.io.OutputStream
+import java.io.OutputStreamWriter
+import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -64,6 +68,44 @@ class TransactionRepository @Inject constructor(
     suspend fun categoryBreakdownSql(start: Long, end: Long) =
         transactionDao.categoryBreakdown(start, end)
 
+    /**
+     * Writes every transaction as CSV with a header line:
+     * `Date, Amount, Type, Merchant, Category, Source, Confidence`.
+     * Dates use ISO-8601 (yyyy-MM-dd HH:mm) local time; amounts are plain
+     * decimal strings so spreadsheets parse them.
+     */
+    suspend fun exportToCsv(outputStream: OutputStream) {
+        val rows = transactionDao.getAllOnce()
+        OutputStreamWriter(outputStream, StandardCharsets.UTF_8).use { out ->
+            out.write(HEADER.joinToString(","))
+            out.write("\n")
+            for (row in rows) {
+                val t = row.toDomain()
+                out.write(
+                    listOf(
+                        formatTimestamp(t.timestamp),
+                        t.amount.toString(),
+                        t.txnType.dbValue,
+                        escapeCsv(t.merchantName),
+                        escapeCsv(t.categoryName ?: "Uncategorized"),
+                        t.sourcePackage,
+                        t.confidenceScore.toString(),
+                    ).joinToString(",")
+                )
+                out.write("\n")
+            }
+        }
+    }
+
+    private fun formatTimestamp(epochMillis: Long): String =
+        java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US)
+            .format(java.util.Date(epochMillis))
+
+    private fun escapeCsv(field: String): String {
+        if (!field.contains(',') && !field.contains('"') && !field.contains('\n')) return field
+        return "\"" + field.replace("\"", "\"\"") + "\""
+    }
+
     private fun TransactionWithCategory.toDomain(): Transaction = Transaction(
         id = transaction.id,
         amount = transaction.amount,
@@ -88,4 +130,8 @@ class TransactionRepository @Inject constructor(
         accountReference = transaction.accountReference,
         createdAt = transaction.createdAt,
     )
+
+    private companion object {
+        val HEADER = listOf("Date", "Amount", "Type", "Merchant", "Category", "Source", "Confidence")
+    }
 }

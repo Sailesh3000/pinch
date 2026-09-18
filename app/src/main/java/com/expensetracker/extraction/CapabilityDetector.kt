@@ -9,13 +9,14 @@ import javax.inject.Singleton
  * Runtime hardware capability detector (spec §11, Phase 4).
  * Routes extraction to the best available engine:
  *   1. Gemini Nano (AICore AVAILABLE)
- *   2. MediaPipe Gemma-3-1B (model file present on disk)
+ *   2. MediaPipe Qwen2.5-0.5B (model present — PAD asset pack first, then internal storage)
  *   3. Deterministic Regex (always available)
  */
 @Singleton
 class CapabilityDetector @Inject constructor(
     private val context: Context,
     private val nanoExtractor: GeminiNanoExtractor,
+    private val modelAssetProvider: ModelAssetProvider,
 ) {
 
     /**
@@ -28,24 +29,26 @@ class CapabilityDetector @Inject constructor(
     }
 
     /**
-     * Checks if the Gemma 3 1B .task model file exists in internal storage.
+     * Checks if the model file exists — in the PAD asset pack (Play Store
+     * installs) or in internal storage (sideload/dev installs).
      */
     fun isMediaPipeModelPresent(): Boolean {
-        val modelFile = File(context.filesDir, MODEL_FILENAME)
-        return modelFile.exists() && modelFile.length() > MIN_MODEL_SIZE_BYTES
+        return modelAssetProvider.modelPath() != null ||
+            internalStorageModelFile().let { it.exists() && it.length() > MIN_MODEL_SIZE_BYTES }
     }
 
     /**
      * Returns the absolute path to the MediaPipe model file, or null if absent.
+     * Resolution order: PAD asset pack -> internal storage download.
      */
     fun mediaPipeModelPath(): String? {
-        val modelFile = File(context.filesDir, MODEL_FILENAME)
-        return if (modelFile.exists() && modelFile.length() > MIN_MODEL_SIZE_BYTES) {
-            modelFile.absolutePath
-        } else {
-            null
-        }
+        modelAssetProvider.modelPath()?.let { return it }
+        return internalStorageModelFile()
+            .takeIf { it.exists() && it.length() > MIN_MODEL_SIZE_BYTES }
+            ?.absolutePath
     }
+
+    private fun internalStorageModelFile(): File = File(context.filesDir, MODEL_FILENAME)
 
     companion object {
         const val MODEL_FILENAME = "qwen2.5-0.5b-pinch-finetuned.litertlm"

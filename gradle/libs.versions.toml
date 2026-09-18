@@ -24,6 +24,11 @@ androidxTestCore = "1.6.1"
 androidxTestRunner = "1.6.2"
 androidxTestExt = "1.2.1"
 espresso = "3.6.1"
+sqlcipher = "4.6.1"
+sqliteKtx = "2.4.0"
+sentry = "7.20.0"
+sentryGradlePlugin = "5.6.0"
+playAssetDelivery = "2.2.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -62,6 +67,12 @@ androidx-test-core = { group = "androidx.test", name = "core", version.ref = "an
 androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExt" }
 androidx-test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
+sqlcipher-android = { group = "net.zetetic", name = "sqlcipher-android", version.ref = "sqlcipher" }
+androidx-sqlite-ktx = { group = "androidx.sqlite", name = "sqlite-ktx", version.ref = "sqliteKtx" }
+sentry-android = { group = "io.sentry", name = "sentry-android", version.ref = "sentry" }
+play-asset-delivery = { group = "com.google.android.play", name = "asset-delivery", version.ref = "playAssetDelivery" }
+play-asset-delivery-ktx = { group = "com.google.android.play", name = "asset-delivery-ktx", version.ref = "playAssetDelivery" }
+sentry-android-gradle-plugin = { group = "io.sentry", name = "sentry-android-gradle-plugin", version.ref = "sentryGradlePlugin" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -71,3 +82,4 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
+sentry-gradle = { id = "io.sentry.android.gradle", version.ref = "sentryGradlePlugin" }

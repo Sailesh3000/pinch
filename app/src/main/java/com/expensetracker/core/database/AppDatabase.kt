@@ -21,7 +21,7 @@ import com.expensetracker.core.database.entity.TransactionEntity
         ClarificationHistoryEntity::class,
         TemplateCacheEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

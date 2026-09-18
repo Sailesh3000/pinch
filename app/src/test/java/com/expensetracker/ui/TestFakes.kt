@@ -151,6 +151,8 @@ class FakeTransactionDao(
 
     override fun observeAll(): Flow<List<TransactionWithCategory>> = flowOf(sorted.toList())
 
+    override suspend fun getAllOnce(): List<TransactionWithCategory> = sorted.toList()
+
     override fun observeFiltered(search: String?, categoryId: Long?): Flow<List<TransactionWithCategory>> = flowOf(
         sorted.filter { row ->
             val matchesSearch = search.isNullOrBlank() ||

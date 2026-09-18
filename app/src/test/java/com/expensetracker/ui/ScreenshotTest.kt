@@ -9,6 +9,7 @@ import com.expensetracker.data.repository.TransactionRepository
 import com.expensetracker.extraction.DeterministicRegexExtractor
 import com.expensetracker.extraction.ExtractorChain
 import com.expensetracker.extraction.GeminiNanoExtractor
+import com.expensetracker.extraction.ModelAssetProvider
 import com.expensetracker.extraction.ModelDownloader
 import com.expensetracker.extraction.TemplateCacheEngine
 import com.expensetracker.ingestion.PackageWhitelist
@@ -137,8 +138,10 @@ class ScreenshotTest {
         )
         val vm = SettingsViewModel(
             MonitoredPackageRepository(FakeMonitoredPackageDao(), PackageWhitelist()),
+            TransactionRepository(FakeTransactionDao()),
             ExtractorChain(UnavailableNanoExtractor(), DeterministicRegexExtractor()),
             ModelDownloader(context),
+            ModelAssetProvider(context),
             context,
         )
         vm.refreshPermissionStatus(true)

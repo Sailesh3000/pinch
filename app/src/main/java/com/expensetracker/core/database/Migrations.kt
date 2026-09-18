@@ -43,3 +43,37 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
         )
     }
 }
+
+/**
+ * v2 -> v3: expands the monitored package whitelist with popular Indian
+ * bank/fintech packages from beta feedback (FR-INGEST-02). INSERT OR IGNORE
+ * keeps existing user toggles intact and avoids duplicate package_names
+ * (guaranteed by the unique index on monitored_packages.package_name).
+ */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        val now = System.currentTimeMillis()
+        for ((pkg, label) in NEW_PACKAGES) {
+            db.execSQL(
+                "INSERT OR IGNORE INTO monitored_packages(package_name, app_label, is_enabled, added_at) " +
+                    "VALUES(?, ?, 1, ?)",
+                arrayOf(pkg, label, now)
+            )
+        }
+    }
+
+    private val NEW_PACKAGES = listOf(
+        "com.indusind.digital" to "IndusInd Bank",
+        "com.idbi.mobilebanking" to "IDBI Bank",
+        "com.bob.mobilebanking" to "Bank of Baroda",
+        "com.unionbankofindia.ecommerce.mobile" to "Union Bank",
+        "com.csam.icici.bank.imobile" to "iMobile Pay",
+        "com.freecharge.android" to "Freecharge",
+        "com.mobikwik_new" to "MobiKwik",
+        "in.amazon.mShop.android.shopping" to "Amazon Pay",
+        "com.whatsapp" to "WhatsApp Pay",
+        "com.slice" to "Slice",
+        "com.jupiter.money" to "Jupiter",
+        "com.fi.money" to "Fi Money",
+    )
+}

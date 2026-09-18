@@ -1,0 +1,51 @@
+name: Deploy Legal Docs to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare site
+        run: |
+          mkdir -p _site
+          cp docs/index.html _site/index.html
+          cp docs/PRIVACY_POLICY.md _site/privacy-policy.html || true
+          cp docs/TERMS_OF_SERVICE.md _site/terms-of-service.html || true
+          cp docs/NOTIFICATION_ACCESS_JUSTIFICATION.md _site/notification-access.html || true
+          cp docs/PLAY_STORE_LISTING.md _site/play-store-listing.html || true
+          echo "prepared:"
+          ls -la _site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

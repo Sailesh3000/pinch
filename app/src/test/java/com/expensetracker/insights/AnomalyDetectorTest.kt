@@ -46,6 +46,8 @@ class AnomalyDetectorTest {
         override suspend fun monthlySpendTrend(limit: Int) = emptyList<TransactionDao.MonthlySpend>()
         override suspend fun potentialRecurringMerchants() = emptyList<com.expensetracker.core.database.dao.RecurringMerchantRow>()
         override suspend fun autoResolveExpired(cutoffMillis: Long) = 0
+        override suspend fun getAllOnce() = emptyList<com.expensetracker.core.database.dao.TransactionWithCategory>()
+        override suspend fun deleteAll() {}
     }
 
     @Before

@@ -22,3 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "ExpenseTracker"
 include(":app")
+include(":aimodel")

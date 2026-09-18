@@ -7,13 +7,16 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.expensetracker.extraction.ExtractorChain
 import com.expensetracker.extraction.MediaPipeExtractor
+import com.expensetracker.extraction.ModelAssetProvider
 import com.expensetracker.extraction.ModelDownloader
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
 /**
- * One-time WorkManager worker that downloads the Gemma 3 1B model
- * and wires the MediaPipeExtractor into the ExtractorChain on success.
+ * One-time WorkManager worker that downloads the on-device model (when not
+ * shipped via Play Asset Delivery) and wires the MediaPipeExtractor into the
+ * ExtractorChain on success. For Play Store installs the model arrives bundled,
+ * so the download is skipped and the PAD asset path is wired directly.
  */
 @HiltWorker
 class ModelDownloadWorker @AssistedInject constructor(
@@ -21,10 +24,17 @@ class ModelDownloadWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val modelDownloader: ModelDownloader,
     private val extractorChain: ExtractorChain,
+    private val modelAssetProvider: ModelAssetProvider,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
         Log.d(TAG, "Starting model download")
+        val bundledPath = modelAssetProvider.modelPath()
+        if (bundledPath != null) {
+            extractorChain.updateMediaPipeExtractor(MediaPipeExtractor(applicationContext, bundledPath))
+            Log.d(TAG, "Model available via asset pack; no download needed")
+            return Result.success()
+        }
         return when (val state = modelDownloader.downloadIfNeeded()) {
             is ModelDownloader.DownloadState.Complete -> {
                 val path = modelDownloader.modelPath

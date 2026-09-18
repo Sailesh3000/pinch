@@ -7,6 +7,7 @@ import com.expensetracker.extraction.DeterministicRegexExtractor
 import com.expensetracker.extraction.ExtractorChain
 import com.expensetracker.extraction.GeminiNanoExtractor
 import com.expensetracker.extraction.MediaPipeExtractor
+import com.expensetracker.extraction.ModelAssetProvider
 import com.expensetracker.extraction.ModelDownloader
 import com.expensetracker.extraction.TemplateCacheEngine
 import com.expensetracker.ingestion.DeduplicationEngine
@@ -51,7 +52,8 @@ object IngestionModule {
     fun provideCapabilityDetector(
         @ApplicationContext context: Context,
         nanoExtractor: GeminiNanoExtractor,
-    ): CapabilityDetector = CapabilityDetector(context, nanoExtractor)
+        modelAssetProvider: ModelAssetProvider,
+    ): CapabilityDetector = CapabilityDetector(context, nanoExtractor, modelAssetProvider)
 
     @Provides
     @Singleton
@@ -61,9 +63,11 @@ object IngestionModule {
         regex: DeterministicRegexExtractor,
         capabilityDetector: CapabilityDetector,
         modelDownloader: ModelDownloader,
+        modelAssetProvider: ModelAssetProvider,
     ): ExtractorChain {
-        // If model is already present, wire MediaPipeExtractor immediately
-        val mediaPipe = modelDownloader.modelPath?.let { MediaPipeExtractor(context, it) }
+        // Resolution order: PAD asset pack (Play Store) -> internal storage (sideload/dev).
+        val modelPath = modelAssetProvider.modelPath() ?: modelDownloader.modelPath
+        val mediaPipe = modelPath?.let { MediaPipeExtractor(context, it) }
         return ExtractorChain(nano, regex, mediaPipe)
     }
 

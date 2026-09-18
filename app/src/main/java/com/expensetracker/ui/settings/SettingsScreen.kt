@@ -1,7 +1,10 @@
 package com.expensetracker.ui.settings
 
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.SmartToy
@@ -50,12 +54,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.expensetracker.extraction.ModelSource
 import com.expensetracker.ingestion.TransactionNotificationListenerService
 import com.expensetracker.ui.theme.Coral
 import com.expensetracker.ui.theme.CoralSoft
@@ -63,16 +69,30 @@ import com.expensetracker.ui.theme.MintGlow
 import com.expensetracker.ui.theme.MistTeal
 import com.expensetracker.ui.theme.PinchTeal
 
+private const val PRIVACY_POLICY_URL =
+    "https://sailesh3000.github.io/pinch/privacy-policy"
+private const val TERMS_OF_SERVICE_URL =
+    "https://sailesh3000.github.io/pinch/terms-of-service"
+
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
 
     LifecycleResumeEffect(Unit) {
         val enabled = notificationListenerEnabled(context)
         viewModel.refreshPermissionStatus(enabled)
         viewModel.refreshAiStatus()
         onPauseOrDispose { }
+    }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            context.contentResolver.openOutputStream(uri)?.let { viewModel.exportTransactions(it) }
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -170,109 +190,16 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
 
             // AI Engine Card
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                ) {
-                    Column(modifier = Modifier.padding(18.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(MintGlow),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.SmartToy,
-                                    contentDescription = null,
-                                    tint = PinchTeal,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    "On-Device AI Engine",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                                )
-                                Text(
-                                    text = "Active: ${uiState.aiEngineName}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = PinchTeal,
-                                )
-                            }
-                        }
+                AiEngineCard(uiState = uiState, onDownload = { viewModel.downloadModel() })
+            }
 
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = when (uiState.nanoAvailable) {
-                                true -> "Gemini Nano (hardware accelerated on device)"
-                                false -> if (uiState.modelPresent) {
-                                    "MediaPipe Qwen2.5-0.5B (local on-device SLM)"
-                                } else {
-                                    "Deterministic Regex Engine (local parsing)"
-                                }
-                                null -> "Checking AI engine status..."
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-
-                        if (uiState.nanoAvailable == false) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            if (uiState.modelPresent) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Filled.Check, contentDescription = null, tint = PinchTeal, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "Qwen2.5-0.5B model installed locally",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = PinchTeal,
-                                    )
-                                }
-                            } else if (uiState.modelDownloading) {
-                                Column {
-                                    Text(
-                                        text = "Downloading model...",
-                                        style = MaterialTheme.typography.bodySmall,
-                                    )
-                                    if (uiState.modelDownloadProgress >= 0) {
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        LinearProgressIndicator(
-                                            progress = { uiState.modelDownloadProgress / 100f },
-                                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(50)),
-                                            color = PinchTeal,
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = "${uiState.modelDownloadProgress}%",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                }
-                            } else {
-                                Text(
-                                    text = "Download the Qwen2.5-0.5B model for improved local extraction (~547 MB).",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Button(
-                                    onClick = { viewModel.downloadModel() },
-                                    shape = RoundedCornerShape(50),
-                                    colors = ButtonDefaults.buttonColors(containerColor = PinchTeal),
-                                ) {
-                                    Text(if (uiState.downloadError != null) "Retry Download" else "Download AI Model")
-                                }
-                            }
-                        }
-                    }
-                }
+            // Data Management Card
+            item {
+                DataManagementCard(
+                    isExporting = uiState.isExporting,
+                    exportResult = uiState.exportResult,
+                    onExport = { exportLauncher.launch("pinch_transactions.csv") },
+                )
             }
 
             // Monitored Packages Section
@@ -374,7 +301,292 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                         }
                     }
                 }
+            }
+
+            // Legal Links
+            item {
+                LegalCard(
+                    onPrivacyClick = { uriHandler.openUri(PRIVACY_POLICY_URL) },
+                    onTermsClick = { uriHandler.openUri(TERMS_OF_SERVICE_URL) },
+                )
                 Spacer(modifier = Modifier.height(80.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiEngineCard(uiState: SettingsUiState, onDownload: () -> Unit) {
+    var continueWithRegex by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MintGlow),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.SmartToy,
+                        contentDescription = null,
+                        tint = PinchTeal,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        "On-Device AI Engine",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    )
+                    Text(
+                        text = "Active: ${uiState.aiEngineName}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PinchTeal,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = uiState.aiTierExplanation,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            // Bundled model (Play Asset Delivery) — nothing to download.
+            if (uiState.modelSource == ModelSource.BUNDLED) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Check, contentDescription = null, tint = PinchTeal, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "AI Model: Bundled with app",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PinchTeal,
+                    )
+                }
+            }
+
+            if (uiState.nanoAvailable == false) {
+                when {
+                    uiState.modelSource == ModelSource.DOWNLOADED -> {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Check, contentDescription = null, tint = PinchTeal, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Qwen2.5-0.5B model installed locally",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = PinchTeal,
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "AI Model: Downloaded separately",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    uiState.modelDownloading -> {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Column {
+                            Text(
+                                text = "Downloading model...",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            if (uiState.modelDownloadProgress >= 0) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                LinearProgressIndicator(
+                                    progress = { uiState.modelDownloadProgress / 100f },
+                                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(50)),
+                                    color = PinchTeal,
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "${uiState.modelDownloadProgress}%",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+
+                    // Model unavailable — show actionable error/decline states.
+                    continueWithRegex -> {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Using regex extraction. Transactions will still be tracked, but categorization may be less accurate. You can download the AI model anytime from Settings.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    uiState.downloadError != null -> {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Model download failed: ${uiState.downloadError}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Coral,
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Button(
+                                onClick = onDownload,
+                                shape = RoundedCornerShape(50),
+                                colors = ButtonDefaults.buttonColors(containerColor = PinchTeal),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text("Retry Download")
+                            }
+                            OutlinedButton(
+                                onClick = { continueWithRegex = true },
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text("Continue with regex")
+                            }
+                        }
+                    }
+
+                    else -> {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Your device doesn't support Gemini Nano. Download the on-device AI model for better accuracy, or continue with regex-based extraction.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Button(
+                                onClick = onDownload,
+                                shape = RoundedCornerShape(50),
+                                colors = ButtonDefaults.buttonColors(containerColor = PinchTeal),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text("Download AI Model")
+                            }
+                            OutlinedButton(
+                                onClick = { continueWithRegex = true },
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text("Continue with regex")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DataManagementCard(
+    isExporting: Boolean,
+    exportResult: ExportResult?,
+    onExport: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(CoralSoft),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Lock,
+                        contentDescription = null,
+                        tint = Coral,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        "Data Management",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    )
+                    Text(
+                        text = "Your data lives on-device. Export it anytime.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+            OutlinedButton(
+                onClick = onExport,
+                enabled = !isExporting,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(50),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.IosShare,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(if (isExporting) "Exporting..." else "Export to CSV")
+            }
+
+            exportResult?.let { result ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = result.message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (result.success) PinchTeal else Coral,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LegalCard(onPrivacyClick: () -> Unit, onTermsClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Text(
+                "LEGAL",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            OutlinedButton(onClick = onPrivacyClick, shape = RoundedCornerShape(50), modifier = Modifier.fillMaxWidth()) {
+                Text("Privacy Policy")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(onClick = onTermsClick, shape = RoundedCornerShape(50), modifier = Modifier.fillMaxWidth()) {
+                Text("Terms of Service")
             }
         }
     }
@@ -388,4 +600,3 @@ private fun notificationListenerEnabled(context: android.content.Context): Boole
     val expected = context.packageName + "/" + TransactionNotificationListenerService::class.java.name
     return flat.split(":").any { it == expected }
 }
-

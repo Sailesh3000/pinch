@@ -1,5 +1,6 @@
 package com.expensetracker.ui.settings
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.ExistingWorkPolicy
@@ -7,20 +8,24 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.expensetracker.core.model.MonitoredPackage
 import com.expensetracker.data.repository.MonitoredPackageRepository
+import com.expensetracker.data.repository.TransactionRepository
 import com.expensetracker.extraction.ExtractorChain
-import com.expensetracker.extraction.MediaPipeExtractor
+import com.expensetracker.extraction.ModelAssetProvider
 import com.expensetracker.extraction.ModelDownloader
+import com.expensetracker.extraction.ModelSource
 import com.expensetracker.worker.ModelDownloadWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import android.content.Context
+import java.io.OutputStream
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import javax.inject.Inject
+
+data class ExportResult(val success: Boolean, val message: String)
 
 data class SettingsUiState(
     val monitoredPackages: List<MonitoredPackage> = emptyList(),
@@ -28,16 +33,22 @@ data class SettingsUiState(
     val nanoAvailable: Boolean? = null,
     val aiEngineName: String = "checking...",
     val modelPresent: Boolean = false,
+    val modelSource: ModelSource = ModelSource.UNAVAILABLE,
+    val aiTierExplanation: String = "",
     val modelDownloadProgress: Int = -1,
     val modelDownloading: Boolean = false,
     val downloadError: String? = null,
+    val isExporting: Boolean = false,
+    val exportResult: ExportResult? = null,
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val monitoredPackageRepository: MonitoredPackageRepository,
+    private val transactionRepository: TransactionRepository,
     private val extractorChain: ExtractorChain,
     private val modelDownloader: ModelDownloader,
+    private val modelAssetProvider: ModelAssetProvider,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -47,6 +58,8 @@ class SettingsViewModel @Inject constructor(
     private val modelDownloadProgress = MutableStateFlow(-1)
     private val modelDownloading = MutableStateFlow(false)
     private val downloadError = MutableStateFlow<String?>(null)
+    private val isExporting = MutableStateFlow(false)
+    private val exportResult = MutableStateFlow<ExportResult?>(null)
 
     val uiState: StateFlow<SettingsUiState> = combine(
         monitoredPackageRepository.observeAll(),
@@ -56,16 +69,24 @@ class SettingsViewModel @Inject constructor(
         modelDownloading,
         modelDownloadProgress,
         downloadError,
+        isExporting,
+        exportResult,
     ) { values ->
+        val currentNano = values[2] as? Boolean
+        val currentModelSource = resolveModelSource()
         SettingsUiState(
             monitoredPackages = values[0] as List<MonitoredPackage>,
             listenerEnabled = values[1] as Boolean,
-            nanoAvailable = values[2] as Boolean?,
+            nanoAvailable = currentNano,
             aiEngineName = values[3] as String,
             modelPresent = modelDownloader.isModelPresent,
+            modelSource = currentModelSource,
+            aiTierExplanation = tierExplanation(currentNano, currentModelSource),
             modelDownloadProgress = values[5] as Int,
             modelDownloading = values[4] as Boolean,
             downloadError = values[6] as String?,
+            isExporting = values[7] as Boolean,
+            exportResult = values[8] as ExportResult?,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
@@ -129,6 +150,23 @@ class SettingsViewModel @Inject constructor(
         )
     }
 
+    /** Writes the full transaction history to [outputStream] in CSV format. */
+    fun exportTransactions(outputStream: OutputStream) {
+        if (isExporting.value) return
+        viewModelScope.launch {
+            isExporting.value = true
+            exportResult.value = null
+            try {
+                transactionRepository.exportToCsv(outputStream)
+                exportResult.value = ExportResult(true, "Exported successfully")
+            } catch (t: Throwable) {
+                exportResult.value = ExportResult(false, t.message ?: "Export failed")
+            } finally {
+                isExporting.value = false
+            }
+        }
+    }
+
     fun setPackageEnabled(packageName: String, enabled: Boolean) {
         viewModelScope.launch {
             monitoredPackageRepository.setEnabled(packageName, enabled)
@@ -142,5 +180,23 @@ class SettingsViewModel @Inject constructor(
             monitoredPackageRepository.addCustomPackage(normalized)
         }
         return true
+    }
+
+    private fun resolveModelSource(): ModelSource = when {
+        modelAssetProvider.isAvailable() -> ModelSource.BUNDLED
+        modelDownloader.isModelPresent -> ModelSource.DOWNLOADED
+        else -> ModelSource.UNAVAILABLE
+    }
+
+    /** User-friendly description of the currently active extraction tier. */
+    private fun tierExplanation(nanoAvailable: Boolean?, modelSource: ModelSource): String = when {
+        nanoAvailable == true ->
+            "Using Gemini Nano — Google's on-device AI. Accurate categorization with zero data leaving your phone."
+        modelSource == ModelSource.BUNDLED ->
+            "Using the on-device AI model bundled with this app install."
+        modelSource == ModelSource.DOWNLOADED ->
+            "Using the on-device AI model you downloaded."
+        else ->
+            "Using deterministic regex parsing. Transactions are still tracked and categorized with on-device rule-based matching."
     }
 }

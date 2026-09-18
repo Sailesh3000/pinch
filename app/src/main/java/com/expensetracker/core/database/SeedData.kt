@@ -53,6 +53,20 @@ object SeedData {
         MonitoredPackageEntity(packageName = "uk.co.monzo.android", appLabel = "Monzo"),
         MonitoredPackageEntity(packageName = "com.americanexpress.android.acctsvcs.us", appLabel = "Amex"),
 
+        // Phase 2 expansion (FR-INGEST-02, MIGRATION_2_3) — beta feedback additions.
+        MonitoredPackageEntity(packageName = "com.indusind.digital", appLabel = "IndusInd Bank"),
+        MonitoredPackageEntity(packageName = "com.idbi.mobilebanking", appLabel = "IDBI Bank"),
+        MonitoredPackageEntity(packageName = "com.bob.mobilebanking", appLabel = "Bank of Baroda"),
+        MonitoredPackageEntity(packageName = "com.unionbankofindia.ecommerce.mobile", appLabel = "Union Bank"),
+        MonitoredPackageEntity(packageName = "com.csam.icici.bank.imobile", appLabel = "iMobile Pay"),
+        MonitoredPackageEntity(packageName = "com.freecharge.android", appLabel = "Freecharge"),
+        MonitoredPackageEntity(packageName = "com.mobikwik_new", appLabel = "MobiKwik"),
+        MonitoredPackageEntity(packageName = "in.amazon.mShop.android.shopping", appLabel = "Amazon Pay"),
+        MonitoredPackageEntity(packageName = "com.whatsapp", appLabel = "WhatsApp Pay"),
+        MonitoredPackageEntity(packageName = "com.slice", appLabel = "Slice"),
+        MonitoredPackageEntity(packageName = "com.jupiter.money", appLabel = "Jupiter"),
+        MonitoredPackageEntity(packageName = "com.fi.money", appLabel = "Fi Money"),
+
         // Test package for emulator validation (cmd notification post sends from com.android.shell)
         MonitoredPackageEntity(packageName = "com.android.shell", appLabel = "Shell (Test)"),
     )

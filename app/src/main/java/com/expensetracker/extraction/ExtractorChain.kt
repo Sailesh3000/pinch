@@ -66,11 +66,19 @@ class ExtractorChain(
 
         // Tier 2: Deterministic regex (always succeeds or returns fallback)
         activeEngine = EngineType.REGEX
-        val regexResult = regexExtractor.extract(packageName, title, body, timestampEpoch)
-        if (regexResult != null) {
-            Log.d(TAG, "Engine=REGEX amount=${regexResult.amount} merchant=${regexResult.merchantOrPayee} confidence=${regexResult.confidenceScore}")
+        return try {
+            val regexResult = regexExtractor.extract(packageName, title, body, timestampEpoch)
+            if (regexResult != null) {
+                Log.d(TAG, "Engine=REGEX amount=${regexResult.amount} merchant=${regexResult.merchantOrPayee} confidence=${regexResult.confidenceScore}")
+                regexResult
+            } else {
+                fallback()
+            }
+        } catch (t: Throwable) {
+            // Defensive: the regex tier must never crash the notification pipeline.
+            Log.e(TAG, "Regex extraction threw; returning fallback", t)
+            fallback()
         }
-        return regexResult ?: fallback()
     }
 
     suspend fun isNanoAvailable(): Boolean {
@@ -79,6 +87,30 @@ class ExtractorChain(
         }
         return nanoAvailableCache == true
     }
+
+    /**
+     * Reports each tier's availability for the Settings diagnostics UI.
+     */
+    suspend fun diagnosticStatus(): AiDiagnostic {
+        val nano = nanoExtractor.isAvailable()
+        val mediaPipe = mediaPipeExtractor?.isAvailable() == true
+        val active = when {
+            nano -> EngineType.GEMINI_NANO
+            mediaPipe -> EngineType.MEDIAPIPE
+            else -> EngineType.REGEX
+        }
+        return AiDiagnostic(
+            nanoAvailable = nano,
+            mediaPipeAvailable = mediaPipe,
+            activeEngine = active,
+        )
+    }
+
+    data class AiDiagnostic(
+        val nanoAvailable: Boolean,
+        val mediaPipeAvailable: Boolean,
+        val activeEngine: EngineType,
+    )
 
     private fun fallback(): ExtractionResult = ExtractionResult(
         isFinancialTransaction = false,

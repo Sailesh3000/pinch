@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Compile debug + unit tests
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
+
+      - name: Lint
+        run: ./gradlew :app:lintDebug --stacktrace
+
+      - name: Assemble debug APK
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pinched-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+
+  assemble-release:
+    # Release is unsigned when keystore.properties is absent; only verify the
+    # build compiles + R8 runs. CI must not receive signing credentials.
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Assemble release (unsigned / R8 check)
+        run: ./gradlew :app:assembleRelease --stacktrace
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pinched-release-apk
+          path: app/build/outputs/apk/release/*.apk
+
+  instrumentation:
+    runs-on: ubuntu-latest
+    # Instrumentation tests need an Android device; run on Firebase Test Lab
+    # for PRs that need it. Kept draggable out of the fast path.
+    if: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Assemble androidTest
+        run: ./gradlew :app:assembleDebugAndroidTest

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Pre-Android 12 (API 26-30) full backup policy. Back up everything except
+    the re-downloadable AI model (~547 MB), its temp download, and the
+    temporary plaintext legacy backup created only during DB migration.
+-->
+<full-backup-content>
+    <include domain="file" path="." />
+    <include domain="database" path="." />
+    <include domain="sharedpref" path="." />
+    <exclude domain="file" path="qwen2.5-0.5b-pinch-finetuned.litertlm" />
+    <exclude domain="file" path="qwen2.5-0.5b-pinch-finetuned.litertlm.tmp" />
+    <exclude domain="database" path="expense_tracker.db.legacy-backup" />
+</full-backup-content>

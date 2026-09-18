@@ -28,6 +28,7 @@ class FakeTransactionDaoForDecay : TransactionDao {
 
     override suspend fun insert(entity: TransactionEntity): Long = 0L
     override fun observeAll(): Flow<List<TransactionWithCategory>> = MutableStateFlow(emptyList())
+    override suspend fun getAllOnce(): List<TransactionWithCategory> = emptyList()
     override fun observeFiltered(search: String?, categoryId: Long?): Flow<List<TransactionWithCategory>> = MutableStateFlow(emptyList())
     override suspend fun getById(id: Long): TransactionEntity? = null
     override suspend fun update(entity: TransactionEntity) {}

@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.roborazzi)
+    alias(libs.plugins.sentry.gradle)
 }
 
 // Release signing — credentials live in keystore.properties (gitignored, not
@@ -23,6 +24,9 @@ android {
     namespace = "com.expensetracker"
     compileSdk = 35
 
+    // Install-time asset pack that ships the on-device AI model with the app.
+    assetPacks += listOf(":aimodel")
+
     defaultConfig {
         applicationId = "com.expensetracker"
         minSdk = 26
@@ -33,6 +37,9 @@ android {
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
+        // Sentry DSN — set a real value before shipping. Empty string disables
+        // crash reporting entirely (Sentry init is skipped when blank).
+        buildConfigField("String", "SENTRY_DSN", "\"\"")
     }
 
     signingConfigs {
@@ -74,6 +81,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
@@ -86,6 +94,14 @@ android {
         unitTests.isReturnDefaultValues = true
         unitTests.isIncludeAndroidResources = true
     }
+}
+
+sentry {
+    // R8 mapping upload requires a Sentry auth token configured via environment
+    // (SENTRY_AUTH_TOKEN); keep CI/dev builds from failing when it's absent.
+    autoUploadProguardMapping = false
+    uploadNativeSymbols = false
+    includeSourceContext = false
 }
 
 dependencies {
@@ -106,6 +122,13 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+
+    implementation(libs.sqlcipher.android)
+    implementation(libs.androidx.sqlite.ktx)
+    implementation(libs.sentry.android)
+
+    implementation(libs.play.asset.delivery)
+    implementation(libs.play.asset.delivery.ktx)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

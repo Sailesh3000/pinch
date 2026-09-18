@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android 12+ (API 31+) cloud backup / device transfer policy (FR-BACKUP-01).
+    Financial data (the encrypted SQLite DB and settings) is excluded from
+    cloud backup but restored between the user's own devices; the ~547 MB AI
+    model, its temp download, and the plaintext legacy migration file are
+    always excluded.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="." />
+        <include domain="database" path="." />
+        <include domain="sharedpref" path="." />
+        <exclude domain="database" path="expense_tracker.db" />
+        <exclude domain="sharedpref" path="expense_tracker_prefs.xml" />
+        <exclude domain="sharedpref" path="db_key_prefs.xml" />
+        <exclude domain="database" path="expense_tracker.db.legacy-backup" />
+        <exclude domain="file" path="qwen2.5-0.5b-pinch-finetuned.litertlm" />
+        <exclude domain="file" path="qwen2.5-0.5b-pinch-finetuned.litertlm.tmp" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="." />
+        <include domain="database" path="." />
+        <include domain="sharedpref" path="." />
+        <exclude domain="database" path="expense_tracker.db.legacy-backup" />
+        <exclude domain="file" path="qwen2.5-0.5b-pinch-finetuned.litertlm" />
+        <exclude domain="file" path="qwen2.5-0.5b-pinch-finetuned.litertlm.tmp" />
+    </device-transfer>
+</data-extraction-rules>

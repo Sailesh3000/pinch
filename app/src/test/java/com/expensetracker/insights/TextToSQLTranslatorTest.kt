@@ -51,6 +51,8 @@ class TextToSQLTranslatorTest {
         override suspend fun monthlySpendTrend(limit: Int) = emptyList<TransactionDao.MonthlySpend>()
         override suspend fun potentialRecurringMerchants() = emptyList<com.expensetracker.core.database.dao.RecurringMerchantRow>()
         override suspend fun autoResolveExpired(cutoffMillis: Long) = 0
+        override suspend fun getAllOnce() = emptyList<com.expensetracker.core.database.dao.TransactionWithCategory>()
+        override suspend fun deleteAll() {}
     }
 
     private val fakeCategoryDao = object : CategoryDao {
@@ -60,6 +62,7 @@ class TextToSQLTranslatorTest {
         override suspend fun getByName(name: String) = null
         override suspend fun insertAll(entities: List<com.expensetracker.core.database.entity.CategoryEntity>) {}
         override suspend fun incrementUsage(categoryId: Long) {}
+        override suspend fun deleteAll() {}
     }
 
     @Before
