@@ -22,7 +22,7 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "com.expensetracker"
-    compileSdk = 35
+    compileSdk = 36
 
     // Install-time asset pack that ships the on-device AI model with the app.
     assetPacks += listOf(":aimodel")
@@ -30,7 +30,7 @@ android {
     defaultConfig {
         applicationId = "com.sailesh.pinch"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -63,6 +63,11 @@ android {
             )
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
+            }
+            // Bundles native debug symbols (MediaPipe/SQLCipher .so libs) into
+            // the AAB so Play Console can symbolicate native crashes/ANRs.
+            ndk {
+                debugSymbolLevel = "FULL"
             }
         }
         debug {
