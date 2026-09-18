@@ -70,9 +70,9 @@ import com.expensetracker.ui.theme.MistTeal
 import com.expensetracker.ui.theme.PinchTeal
 
 private const val PRIVACY_POLICY_URL =
-    "https://sailesh3000.github.io/pinch/privacy-policy"
+    "https://raw.githubusercontent.com/Sailesh3000/pinch/main/docs/PRIVACY_POLICY.md"
 private const val TERMS_OF_SERVICE_URL =
-    "https://sailesh3000.github.io/pinch/terms-of-service"
+    "https://raw.githubusercontent.com/Sailesh3000/pinch/main/docs/TERMS_OF_SERVICE.md"
 
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
