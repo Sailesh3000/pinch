@@ -13,3 +13,7 @@ app/build/
 *.jks
 *.keystore
 keystore.properties
+
+# On-device AI model — large binary, fetched from HuggingFace, never committed
+aimodel/src/main/assets/*.litertlm
+aimodel/build/

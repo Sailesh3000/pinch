@@ -158,6 +158,7 @@ class ModelDownloader @Inject constructor(
 
             // Offset so a resumed download still reports 0..100 across the whole file.
             var accumulated = existingSize
+            var lastEmittedProgress = -2 // guarantees the first computed value is emitted
             connection.inputStream.use { input ->
                 FileOutputStream(tmpFile, resuming).use { output ->
                     val buffer = ByteArray(BUFFER_SIZE)
@@ -171,9 +172,12 @@ class ModelDownloader @Inject constructor(
                         } else {
                             -1 // indeterminate
                         }
-                        if (progress == -1 || accumulated % (BUFFER_SIZE * 10) == 0L ||
-                            (totalBytes > 0 && accumulated >= totalBytes)
-                        ) {
+                        // Emit on every distinct percentage point (or every chunk when
+                        // indeterminate) instead of an exact byte-multiple match, which
+                        // variable-sized TCP reads almost never hit - the old check left
+                        // the UI frozen until the download finished, then jumped to 100%.
+                        if (progress != lastEmittedProgress) {
+                            lastEmittedProgress = progress
                             _state.value = DownloadState.Downloading(progress)
                         }
                     }
