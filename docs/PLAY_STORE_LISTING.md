@@ -134,9 +134,9 @@ The app requires internet access for one-time download of on-device AI models (~
 
 ### Data Handling
 
-- **Encryption:** All data stored in encrypted SQLite database
-- **Deletion:** Users can delete all data via Settings → Clear Data, or by uninstalling the app
-- **Retention:** Data is stored until manually deleted or app is uninstalled
+- **Encryption:** All data stored in an SQLCipher-encrypted database (Android Keystore-managed passphrase)
+- **Deletion:** Uninstalling the app permanently removes all data. There is no in-app "delete all data" control yet.
+- **Retention:** Data is stored until the app is uninstalled
 - **Third-party sharing:** None
 
 ### Security Practices
