@@ -5,7 +5,10 @@ notifications** (including SMS-originated bank alerts via the Messages app's
 notification), extracts transactions with **on-device AI**, and gives you
 categorized spend history, deterministic insights, and natural-language Q&A —
 with **no SMS access, no account access, and no data leaving the phone**
-(one exception: a one-time ~547 MB model download, see [Privacy](#privacy--permissions)).
+(one exception: optional, disabled-by-default crash reporting — see
+[Privacy](#privacy--permissions)). The on-device AI model ships **bundled with
+the app install** via Play Asset Delivery — no separate download needed on
+Play Store installs.
 
 Built to the specs in [`expense-tracker-specs.md`](expense-tracker-specs.md),
 [`notification-expense-tracker-plan.md`](notification-expense-tracker-plan.md),
@@ -68,7 +71,8 @@ categorized row in Room:
               • hit → deterministic regex capture, confidence 0.92, skip all models
            d. ExtractorChain.extract()                        — only on Tier-0 miss
               • Gemini Nano (ML Kit GenAI Prompt API) if AICore reports AVAILABLE
-              • else MediaPipe SLM (Qwen2.5-0.5B-Instruct Q8, downloaded on demand)
+              • else MediaPipe SLM (fine-tuned Qwen2.5-0.5B, bundled via Play
+                Asset Delivery; falls back to on-demand download for sideloads)
               • else DeterministicRegexExtractor (always available; literal copy only)
               • not financial? → stop
            e. ConfidenceGating.apply(score)
@@ -186,10 +190,16 @@ stable before the first insert. `MIGRATION_1_2` adds the Phase-2 tables.
 - **Tier-0 confidence is fixed at 0.92** — authoritative enough to skip the
   SLM, short of 1.0 to leave room for manual override.
 - **Dedup is in-memory** (process lifetime) — spec-permitted heuristic.
-- **Model**: Qwen2.5-0.5B-Instruct (Q8, 547 MB) via MediaPipe tasks-genai,
-  downloaded on demand from HuggingFace (Gemma 3 1B requires license acceptance).
+- **Model**: a fine-tuned Qwen2.5-0.5B (`Sailesh3000/pinch_qwen2.5_0.5b_finetuned`,
+  ~490 MB) via MediaPipe tasks-genai, fine-tuned on a synthetic bank/UPI
+  notification corpus to fix the base model's amount/merchant hallucinations.
+  Shipped **bundled via Play Asset Delivery** (install-time); falls back to a
+  HuggingFace/GitHub-Releases-mirrored download for sideloaded/dev installs.
 - **Zero external charting** — donut/bar charts are hand-rolled Compose Canvas.
-- **APK ~77 MB** (MediaPipe native libs for 4 ABIs); the model is not bundled.
+- **AAB ~442 MB with the model bundled** (install-time Play Asset Delivery);
+  the debug/sideload APK stays small and downloads the model on demand instead.
+- **Database encryption**: SQLCipher with a passphrase generated on first run
+  and protected by the Android Keystore — the on-disk DB is never plaintext.
 
 ### Phases
 
@@ -200,6 +210,7 @@ stable before the first insert. `MIGRATION_1_2` adds the Phase-2 tables.
 | 3 | Deterministic insights: charts, top merchants, confidence stats, subscription detection | ✅ |
 | 4 | MediaPipe SLM fallback engine + model download + interactive notification actions | ✅ |
 | 5 | Guardrailed narratives, Text-to-SQL Q&A, anomaly detection, JVM screenshot + E2E pipeline tests | ✅ |
+| 6 | **Production readiness**: SQLCipher DB encryption, Sentry crash reporting (disabled by default), Play Asset Delivery model bundling, CSV export, expanded bank whitelist (DB v3), ProGuard/R8 release hardening, GitHub Actions CI/CD, privacy policy + ToS + notification-access justification | ✅ |
 
 ---
 
@@ -208,31 +219,49 @@ stable before the first insert. `MIGRATION_1_2` adds the Phase-2 tables.
 | Permission | Status |
 |---|---|
 | `READ_SMS` / `RECEIVE_SMS` | **None** — SMS text is only seen as the Messages app's notification |
-| Notification listener | Required; prominent disclosure on the onboarding screen with a settings deep link |
-| `INTERNET` | One-time model download only; no app data is ever transmitted |
-| Storage | Internal app storage only (model file) |
+| Notification listener | Required; prominent disclosure on the onboarding screen with a settings deep link. See `docs/NOTIFICATION_ACCESS_JUSTIFICATION.md` |
+| `INTERNET` | Model comes bundled via Play Asset Delivery on Play Store installs (no network use); sideloads use it for a one-time fallback model download. Also carries opt-in crash diagnostics if Sentry is ever enabled |
+| Storage | Encrypted SQLCipher database (Android Keystore-managed passphrase); model file in the PAD asset pack or internal storage |
+
+**Data at rest:**
+- Database is SQLCipher-encrypted; passphrase is generated on first launch and never leaves the Keystore.
+- Android Auto Backup is enabled for the encrypted DB only (device-to-device transfer); the AI model file is always excluded from backup.
+- **Crash reporting (Sentry)** is disabled by default (no DSN shipped). If ever enabled, a `beforeSend` scrubber strips any amount/merchant/UPI/bank-looking data before an event leaves the device — see `docs/PRIVACY_POLICY.md`.
+- **Data export**: Settings → Data Management → Export to CSV, via the system file picker.
+
+Full policy: `docs/PRIVACY_POLICY.md` · Terms: `docs/TERMS_OF_SERVICE.md` ·
+hosted at https://sailesh3000.github.io/pinch/.
 
 ---
 
-## Testing — 100 unit tests, no device needed
+## Testing — 20 unit test classes + 3 instrumentation tests, mostly no device needed
 
-| Test class | # | What it covers |
-|---|---:|---|
-| `PreFilterEngineTest` | 10 | Positive/negative keyword gating |
-| `DeduplicationEngineTest` | 10 | 180 s window, amount/payee/currency matching, window expiry |
-| `NotificationPipelineE2ETest` | 8 | **Full pipeline E2E** (Robolectric + real Hilt + real Room): high-confidence save, low-confidence → review + real clarification notification, dual-source dedup merge, non-financial / OTP / unwhitelisted drops, clarification-action tap → real `ClarificationActionReceiver` (resolve + history + Tier-0 promotion + dismiss), seeded Tier-0 template → model-free 0.92 extraction |
-| `TemplateCacheEngineTest` | 10 | Structural hash, regex generation, Tier-0 lookup |
-| `ExtractorChainTest` | 7 | Nano → MediaPipe → Regex routing, fallbacks, hot-swap |
-| `EngineTypeTest` | 8 | Engine enum + capability routing |
-| `MediaPipeExtractorTest` | 2 | Engine availability (no native init on JVM) |
-| `ModelDownloaderTest` | 6 | Download state machine, URL constants |
-| `DeterministicAggregationTest` | 7 | Exact month-summary math |
-| `SubscriptionDetectorTest` | 7 | Monthly/annual/bi/quarterly detection, tolerances |
-| `AnomalyDetectorTest` | 4 | Large-spend + unfamiliar-merchant flags |
-| `NarrativeGeneratorTest` | 3 | Guardrailed narrative fallback + claims |
-| `TextToSQLTranslatorTest` | 7 | NL patterns → query plans |
-| `ClarificationAutoDecayTest` | 5 | 48 h auto-resolve worker logic |
-| `ScreenshotTest` | 6 | Robolectric + Roborazzi: onboarding, home, review, insights (± query), settings — real ViewModels over fake DAOs |
+| Test class | What it covers |
+|---|---|
+| `PreFilterEngineTest` | Positive/negative keyword gating |
+| `DeduplicationEngineTest` | 180 s window, amount/payee/currency matching, window expiry |
+| `NotificationPipelineE2ETest` | **Full pipeline E2E** (Robolectric + real Hilt + real Room): high-confidence save, low-confidence → review + real clarification notification, dual-source dedup merge, non-financial / OTP / unwhitelisted drops, clarification-action tap → real `ClarificationActionReceiver` (resolve + history + Tier-0 promotion + dismiss), seeded Tier-0 template → model-free 0.92 extraction |
+| `E2EUiTest` | End-to-end UI flow coverage |
+| `TemplateCacheEngineTest` | Structural hash, regex generation, Tier-0 lookup |
+| `ExtractorChainTest` | Nano → MediaPipe → Regex routing, fallbacks, hot-swap |
+| `EngineTypeTest` | Engine enum + capability routing |
+| `MediaPipeExtractorTest` | Engine availability (no native init on JVM) |
+| `ModelDownloaderTest` | Download state machine, URL constants |
+| `ModelDownloaderResumeTest` | HTTP `Range`-header resume from a partial `.tmp` file and fallback-URL failover, against a real loopback HTTP server (Robolectric) |
+| `DeterministicAggregationTest` | Exact month-summary math |
+| `SubscriptionDetectorTest` | Monthly/annual/bi/quarterly detection, tolerances |
+| `AnomalyDetectorTest` | Large-spend + unfamiliar-merchant flags |
+| `NarrativeGeneratorTest` | Guardrailed narrative fallback + claims |
+| `ZeroArithmeticPromptGuardTest` | Ensures extraction prompts never ask a model to compute, only copy |
+| `TextToSQLTranslatorTest` | NL patterns → query plans |
+| `ClarificationAutoDecayTest` | 48 h auto-resolve worker logic |
+| `BenchmarkSuiteTest` / `DatasetExportTest` | 1000+-sample synthetic bank/UPI notification corpus, per-engine accuracy benchmarking, dataset export for fine-tuning |
+| `ScreenshotTest` | Robolectric + Roborazzi: onboarding, home, review, insights (± query), settings — real ViewModels over fake DAOs |
+
+**Instrumentation tests** (`app/src/androidTest/`, real device/emulator):
+`DeterministicRegexExtractorInstrumentedTest`, `ExtractorChainInstrumentedTest`,
+`NotificationListenerServiceTest`. Manual device-matrix validation plan in
+`docs/instrumentation_test_plan.md`.
 
 ### Running tests (Windows)
 
@@ -256,6 +285,26 @@ Screenshot references live in `app/build/roborazzi/` (1080×2220 xxhdpi).
 
 ```bat
 .\gradlew.bat :app:assembleDebug     :: debug APK
+.\gradlew.bat :app:bundleRelease     :: signed release AAB for Play Store (needs keystore.properties)
+.\gradlew.bat :app:assembleRelease   :: signed release APK, R8/ProGuard applied
+```
+
+Release signing reads `keystore.properties` (gitignored, never committed) at
+the repo root:
+
+```properties
+storeFile=<path-to-keystore.jks>
+storePassword=<...>
+keyAlias=<...>
+keyPassword=<...>
+```
+
+The on-device model (`aimodel/src/main/assets/qwen-pinch.litertlm`, ~490 MB)
+is **not committed** — download it before a release build:
+
+```bat
+curl -L -o aimodel\src\main\assets\qwen-pinch.litertlm ^
+  https://huggingface.co/Sailesh3000/pinch_qwen2.5_0.5b_finetuned/resolve/main/qwen-pinch.litertlm
 ```
 
 ---
@@ -265,26 +314,46 @@ Screenshot references live in `app/build/roborazzi/` (1080×2220 xxhdpi).
 ```
 expense_tracker/
 ├── app/src/main/java/com/expensetracker/
-│   ├── ExpenseTrackerApp.kt          @HiltAndroidApp, WorkManager Configuration.Provider
+│   ├── ExpenseTrackerApp.kt          @HiltAndroidApp, Sentry init, WorkManager Configuration.Provider
 │   ├── MainActivity.kt               Compose entry (onboarding gate → MainScaffold)
 │   ├── ingestion/                    listener service, pre-filter, whitelist, dedup, processor
-│   ├── extraction/                   extractor chain, 3 engines, template cache, gating
+│   ├── extraction/                   extractor chain, 3 engines, template cache, gating,
+│   │                                 ModelDownloader (resume + mirrors), ModelAssetProvider (PAD)
 │   ├── clarification/                ClarificationNotifier + ClarificationActionReceiver
 │   ├── insights/                     TextToSQLTranslator, AnomalyDetector, NarrativeGenerator
 │   ├── worker/                       ClarificationAutoDecayWorker, ModelDownloadWorker, WorkScheduler
-│   ├── data/                         repositories + AppPreferences
-│   ├── core/                         Room (entities/DAOs/migration/seed), models, math, formatters
+│   ├── data/                         repositories (incl. CSV export) + AppPreferences
+│   ├── core/                         Room (entities/DAOs/migrations v1-v3, seed),
+│   │                                 DatabaseKeyProvider + LegacyDatabaseMigrator (SQLCipher),
+│   │                                 models, math, formatters
 │   ├── di/                           Hilt modules
 │   └── ui/                           Compose screens, components, theme, navigation
-├── app/src/test/java/com/expensetracker/
-│   ├── ingestion/NotificationPipelineE2ETest.kt   ← E2E pipeline (Robolectric + Hilt + Room)
-│   ├── ui/ScreenshotTest.kt + TestFakes.kt        ← Roborazzi screenshots + fake DAOs
-│   └── …                             unit tests per layer
+├── aimodel/                          Play Asset Delivery module (install-time)
+│   └── src/main/assets/              qwen-pinch.litertlm goes here (not committed, see Build)
+├── app/src/test/java/com/expensetracker/     20 unit test classes (see Testing)
+├── app/src/androidTest/java/com/expensetracker/   3 instrumentation tests (real device)
+├── .github/workflows/                ci.yml (test/lint/build), deploy-privacy-policy.yml (Pages)
+├── docs/                             PRIVACY_POLICY.md, TERMS_OF_SERVICE.md,
+│                                     NOTIFICATION_ACCESS_JUSTIFICATION.md,
+│                                     instrumentation_test_plan.md, PLAY_STORE_LISTING.md, index.html
 ├── expense-tracker-specs.md          product/technical spec (FR-IDs, schemas, NFRs)
 ├── notification-expense-tracker-plan.md   pipeline design
 ├── expense-tracker-ui-plan.md        UI plan
 └── traceability.md                   spec → code traceability + decision log
 ```
+
+## CI/CD & release status
+
+- **GitHub Actions** (`.github/workflows/ci.yml`): unit tests + lint + debug APK
+  build on every push/PR; a signed-release/R8 verification job runs on
+  `release/*` branches.
+- **Legal docs** (`.github/workflows/deploy-privacy-policy.yml`): deploys
+  `docs/` to GitHub Pages at https://sailesh3000.github.io/pinch/ on every
+  push touching `docs/**`.
+- **Play Store**: production-hardened for closed-beta submission — SQLCipher
+  encryption, ProGuard/R8-verified release AAB, Play Asset Delivery model
+  bundling, CSV export/backup, privacy policy + ToS + notification-access
+  justification all in place.
 
 ## Environment
 
