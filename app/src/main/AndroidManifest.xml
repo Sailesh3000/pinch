@@ -21,6 +21,14 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ExpenseTracker">
 
+        <!-- Sentry's ContentProvider auto-inits before Application.onCreate() and
+             throws IllegalArgumentException ("DSN is required") when no DSN is in
+             the manifest - crashing the app on every launch regardless of our
+             BuildConfig.SENTRY_DSN.isBlank() guard in ExpenseTrackerApp, since that
+             guard runs too late. Disabling auto-init here lets our manual init
+             (which correctly no-ops when the DSN is blank) be the only init path. -->
+        <meta-data android:name="io.sentry.auto-init" android:value="false" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
