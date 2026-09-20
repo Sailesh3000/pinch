@@ -1,6 +1,7 @@
 package com.expensetracker.di
 
 import android.content.Context
+import com.expensetracker.core.database.dao.CategoryDao
 import com.expensetracker.core.database.dao.TemplateCacheDao
 import com.expensetracker.extraction.CapabilityDetector
 import com.expensetracker.extraction.DeterministicRegexExtractor
@@ -73,6 +74,8 @@ object IngestionModule {
 
     @Provides
     @Singleton
-    fun provideTemplateCacheEngine(templateCacheDao: TemplateCacheDao): TemplateCacheEngine =
-        TemplateCacheEngine(templateCacheDao)
+    fun provideTemplateCacheEngine(
+        templateCacheDao: TemplateCacheDao,
+        categoryDao: CategoryDao,
+    ): TemplateCacheEngine = TemplateCacheEngine(templateCacheDao, categoryDao)
 }

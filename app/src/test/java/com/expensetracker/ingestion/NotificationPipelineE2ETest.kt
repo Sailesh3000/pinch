@@ -340,12 +340,13 @@ class NotificationPipelineE2ETest {
         assertEquals(0.92f, t.confidenceScore, 0.001f)
         assertEquals(ConfidenceTier.TIER_0_CACHE.dbValue, t.confidenceTier)
         assertFalse(t.needsClarification)
-        // lookup() returns the hardcoded "Uncategorized" category; the seeded
-        // defaultCategoryId is not yet consulted on the lookup path.
-        assertEquals("Uncategorized", row.categoryName)
-        // The generated regex has no "merchant" named group, so lookup() falls back to
-        // the stored pattern itself — assert the app's actual behaviour, not the ideal.
-        assertEquals(regex, t.merchantName)
+        // The whole point of promotion: the category the user picked is reused.
+        // defaultCategoryId 1 is the first seeded category, "Food & Dining".
+        assertEquals("Food & Dining", row.categoryName)
+        // The generated regex captures the merchant in a named group, so the
+        // real merchant is stored - not the regex source string, which is what
+        // the old missing-group fallback wrote here.
+        assertEquals("Zomato", t.merchantName)
 
         // The cache entry recorded a hit, proving the row came from Tier 0, not the SLM chain.
         val updated = runBlocking { templateCacheDao.getAll().first() }

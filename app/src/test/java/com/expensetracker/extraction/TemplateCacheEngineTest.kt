@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import com.expensetracker.ui.FakeCategoryDao
 import org.junit.Test
 
 /**
@@ -13,7 +14,8 @@ import org.junit.Test
 class TemplateCacheEngineTest {
 
     private val engine = TemplateCacheEngine(
-        templateCacheDao = FakeTemplateCacheDao()
+        templateCacheDao = FakeTemplateCacheDao(),
+        categoryDao = FakeCategoryDao(),
     )
 
     @Test

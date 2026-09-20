@@ -1,5 +1,6 @@
 package com.expensetracker.extraction
 
+import com.expensetracker.core.database.dao.CategoryDao
 import com.expensetracker.core.database.dao.TemplateCacheDao
 import com.expensetracker.core.database.entity.TemplateCacheEntity
 import com.expensetracker.core.model.ConfidenceTier
@@ -22,6 +23,7 @@ import javax.inject.Singleton
 @Singleton
 class TemplateCacheEngine @Inject constructor(
     private val templateCacheDao: TemplateCacheDao,
+    private val categoryDao: CategoryDao,
 ) {
 
     companion object {
@@ -36,7 +38,17 @@ class TemplateCacheEngine @Inject constructor(
     fun buildExtractionRegex(merchantName: String): String {
         val escapedMerchant = Regex.escape(merchantName.trim())
         val amountCapture = """(?<amount>\d[\d,]*(?:\.\d{1,2})?)"""
-        return """(?i)(?:Rs|₹|INR|\$)\s*$amountCapture\s+(?:to|at|via|on|paid|spent).*?$escapedMerchant"""
+        // The merchant must be a named group: lookup() reads
+        // match.groups["merchant"], and a pattern without it throws.
+        //
+        // No verb alternation between amount and merchant. The previous
+        // pattern demanded (?:to|at|via|on|paid|spent), which does not appear
+        // in the dominant Indian bank phrasing ("INR 1,250.00 debited from
+        // A/c XX4567 at Swiggy"), so the regex never matched and Tier 0
+        // effectively never fired. Matching is already done by the structural
+        // hash - only entries whose whole skeleton is identical get this far -
+        // so this regex only has to *extract*, and can stay permissive.
+        return """(?i)(?:Rs|₹|INR|\$)\s*$amountCapture.*?(?<merchant>$escapedMerchant)"""
     }
 
     /**
@@ -68,25 +80,32 @@ class TemplateCacheEngine @Inject constructor(
             ?.replace(",", "")
             ?.toDoubleOrNull()
             ?: return null
-        // match.groups[name] throws IllegalArgumentException when the compiled
-        // pattern has no such named group (buildExtractionRegex only defines
-        // "amount"), so the missing-group case must fall back to the pattern
-        // itself instead of aborting the whole Tier-0 lookup.
+        // A template stored before the merchant group existed cannot yield a
+        // merchant. Bail to the SLM rather than fall back to the pattern text:
+        // that old fallback wrote the regex source into the merchant field, so
+        // cache hits produced rows literally named "(?i)(?:Rs|INR...".
         val merchant = runCatching { match.groups[entry.merchantCaptureGroup]?.value }
             .getOrNull()
-            ?: entry.regexPattern // fallback: merchant baked into regex at compile time
-        if (merchant.isBlank()) return null
+            ?.trim()
+            ?.takeUnless { it.isBlank() }
+            ?: return null
 
         templateCacheDao.recordHit(entry.id, System.currentTimeMillis())
+
+        // The whole point of promotion is to reuse the category the user
+        // picked. Hardcoding "Uncategorized" here meant every Tier 0 hit was
+        // filed as uncategorized and defaultCategoryId was never read at all,
+        // so the app could never appear to learn from a clarification.
+        val category = categoryDao.getById(entry.defaultCategoryId)?.name ?: "Uncategorized"
 
         return ExtractionResult(
             isFinancialTransaction = true,
             amount = amount,
             currency = "INR",
             txnType = "DEBIT",
-            merchantOrPayee = merchant.trim(),
+            merchantOrPayee = merchant,
             accountReference = null,
-            category = "Uncategorized",
+            category = category,
             confidenceScore = TIER_0_CONFIDENCE,
             reasoning = "Tier 0 template cache hit",
         )
@@ -107,15 +126,24 @@ class TemplateCacheEngine @Inject constructor(
         val hash = structuralHash(packageName, rawText)
         val regex = buildExtractionRegex(merchantName)
 
+        // @Upsert resolves a conflict by UPDATE on the primary key, but the
+        // conflict here comes from the unique index (package_name,
+        // pattern_hash). Building the entity with the default id = 0 therefore
+        // matched no row, and re-answering a clarification for an already
+        // promoted pattern silently kept the stale regex and category. Reusing
+        // the existing row's id makes the update land.
+        val existing = templateCacheDao.findByPattern(packageName, hash)
+
         templateCacheDao.upsert(
             TemplateCacheEntity(
+                id = existing?.id ?: 0,
                 packageName = packageName,
                 patternHash = hash,
                 regexPattern = regex,
                 defaultCategoryId = defaultCategoryId,
                 merchantCaptureGroup = "merchant",
                 amountCaptureGroup = "amount",
-                hitCount = 0,
+                hitCount = existing?.hitCount ?: 0,
                 lastHitTimestamp = System.currentTimeMillis(),
             )
         )

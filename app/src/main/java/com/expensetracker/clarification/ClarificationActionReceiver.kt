@@ -82,7 +82,7 @@ class ClarificationActionReceiver : BroadcastReceiver() {
                 )
 
                 // Step 3: promote to Tier 0 cache
-                val cacheEngine = TemplateCacheEngine(db.templateCacheDao())
+                val cacheEngine = TemplateCacheEngine(db.templateCacheDao(), db.categoryDao())
                 cacheEngine.promote(
                     packageName = existing.sourcePackage,
                     sourceType = existing.sourceType,
