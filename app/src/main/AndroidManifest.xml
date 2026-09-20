@@ -53,15 +53,6 @@
             android:name=".clarification.ClarificationActionReceiver"
             android:exported="false" />
 
-        <!-- Debug-only: test extraction pipeline from adb -->
-        <receiver
-            android:name=".ingestion.DebugPipelineReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.expensetracker.DEBUG_TEST" />
-            </intent-filter>
-        </receiver>
-
         <!-- Disable default WorkManager initializer; ExpenseTrackerApp provides custom config -->
         <provider
             android:name="androidx.startup.InitializationProvider"

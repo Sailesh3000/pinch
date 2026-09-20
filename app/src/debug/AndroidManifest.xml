@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+          Debug-only pipeline test hook, driven from adb. It has to be exported
+          to be reachable from the shell, and its "clear" action deletes every
+          transaction, so it must never exist in a release build - any installed
+          app could otherwise wipe the user's data or inject fabricated
+          transactions by broadcasting to it.
+
+          Declaring it here rather than in the main manifest is what keeps it
+          out of release: the class lives in src/debug too, so release builds
+          neither register nor contain it.
+        -->
+        <receiver
+            android:name=".ingestion.DebugPipelineReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.expensetracker.DEBUG_TEST" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>
