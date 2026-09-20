@@ -24,14 +24,14 @@ android {
     namespace = "com.expensetracker"
     compileSdk = 36
 
-    // Install-time asset pack that ships the on-device AI model with the app.
+    // Fast-follow asset pack that ships the on-device AI model with the app.
     assetPacks += listOf(":aimodel")
 
     defaultConfig {
         applicationId = "com.sailesh.pinch"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
+        versionCode = 12
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk {
@@ -80,10 +80,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
         buildConfig = true
@@ -98,6 +94,12 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
         unitTests.isIncludeAndroidResources = true
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
@@ -148,7 +150,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.mlkit.genai.prompt)
-    implementation(libs.mediapipe.tasks.genai)
+    implementation(libs.litertlm.android)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

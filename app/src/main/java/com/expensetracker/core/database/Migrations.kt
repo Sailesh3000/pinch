@@ -57,7 +57,7 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
             db.execSQL(
                 "INSERT OR IGNORE INTO monitored_packages(package_name, app_label, is_enabled, added_at) " +
                     "VALUES(?, ?, 1, ?)",
-                arrayOf(pkg, label, now)
+                arrayOf<Any>(pkg, label, now)
             )
         }
     }

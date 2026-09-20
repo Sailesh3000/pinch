@@ -11,11 +11,10 @@
 -keep class dagger.hilt.** { *; }
 -keep class * extends dagger.hilt.android.internal.managers.ViewComponentManager$FragmentContextWrapper { *; }
 
-# MediaPipe GenAI - native JNI and image framework
--keep class com.google.mediapipe.** { *; }
--keepclassmembers class com.google.mediapipe.** { native <methods>; }
--dontwarn com.google.mediapipe.framework.image.**
--dontwarn com.google.mediapipe.tasks.genai.**
+# LiteRT-LM - native JNI runtime for on-device LLM inference (.litertlm models)
+-keep class com.google.ai.edge.litertlm.** { *; }
+-keepclassmembers class com.google.ai.edge.litertlm.** { native <methods>; }
+-dontwarn com.google.ai.edge.litertlm.**
 
 # Kotlin Serialization
 -keepattributes *Annotation*, InnerClasses

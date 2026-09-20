@@ -27,7 +27,7 @@ class SeedDatabaseCallback : RoomDatabase.Callback() {
                 db.execSQL(
                     "INSERT OR IGNORE INTO monitored_packages(package_name, app_label, is_enabled, added_at) " +
                         "VALUES(?, ?, 1, ?)",
-                    arrayOf(p.packageName, p.appLabel, System.currentTimeMillis())
+                    arrayOf<Any>(p.packageName, p.appLabel, System.currentTimeMillis())
                 )
             }
             db.setTransactionSuccessful()
