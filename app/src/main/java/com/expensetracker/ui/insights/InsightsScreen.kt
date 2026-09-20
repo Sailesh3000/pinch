@@ -64,8 +64,17 @@ import kotlin.math.abs
 @Composable
 fun InsightsScreen(
     viewModel: InsightsViewModel = hiltViewModel(),
-    onDeepLink: (DeepLinkType, String) -> Unit = { _, _ -> },
+    /**
+     * Navigates to Home once the filter has been recorded. Required, not
+     * defaulted: a default no-op is exactly how every claim chip and anomaly
+     * card on this screen silently did nothing.
+     */
+    onNavigateToHome: () -> Unit,
 ) {
+    val onDeepLink: (DeepLinkType, String) -> Unit = { type, value ->
+        viewModel.requestDeepLink(type, value)
+        onNavigateToHome()
+    }
     val state by viewModel.uiState.collectAsState()
     var pendingQuery by remember { mutableStateOf("") }
 

@@ -8,6 +8,8 @@ import com.expensetracker.core.database.dao.CategorySpend
 import com.expensetracker.core.math.DeterministicMathEngine
 import com.expensetracker.data.repository.TransactionRepository
 import com.expensetracker.insights.AnomalyDetector
+import com.expensetracker.insights.DeepLinkCoordinator
+import com.expensetracker.insights.DeepLinkType
 import com.expensetracker.insights.NarrativeGenerator
 import com.expensetracker.insights.SpendingFacts
 import com.expensetracker.insights.TextToSQLTranslator
@@ -28,6 +30,7 @@ class InsightsViewModel @Inject constructor(
     private val narrativeGenerator: NarrativeGenerator,
     private val textToSQLTranslator: TextToSQLTranslator,
     private val anomalyDetector: AnomalyDetector,
+    private val deepLinkCoordinator: DeepLinkCoordinator,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(InsightsUiState())
@@ -203,4 +206,14 @@ class InsightsViewModel @Inject constructor(
             "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
         return monthNames.getOrNull(monthNum - 1) ?: label
     }
+
+    /**
+     * Records the filter Home should apply. The caller navigates; Home reads
+     * this on arrival. See [DeepLinkCoordinator] for why this cannot just be a
+     * direct call into HomeViewModel.
+     */
+    fun requestDeepLink(type: DeepLinkType, value: String) {
+        deepLinkCoordinator.request(type, value)
+    }
+
 }

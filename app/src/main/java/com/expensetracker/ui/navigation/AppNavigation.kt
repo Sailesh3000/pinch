@@ -185,7 +185,21 @@ fun MainScaffold() {
             modifier = Modifier.padding(innerPadding),
         ) {
             composable(TopLevelDestination.HOME.route) { HomeScreen() }
-            composable(TopLevelDestination.INSIGHTS.route) { InsightsScreen() }
+            composable(TopLevelDestination.INSIGHTS.route) {
+                InsightsScreen(
+                    // Same options as the bottom bar so a deep link lands on
+                    // the existing Home entry rather than stacking a new one.
+                    onNavigateToHome = {
+                        navController.navigate(TopLevelDestination.HOME.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
+            }
             composable(TopLevelDestination.REVIEW.route) { ReviewScreen() }
             composable(TopLevelDestination.SETTINGS.route) { SettingsScreen() }
         }

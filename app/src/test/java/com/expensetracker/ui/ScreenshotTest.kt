@@ -34,6 +34,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import com.expensetracker.insights.DeepLinkCoordinator
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -69,6 +70,7 @@ class ScreenshotTest {
         val vm = HomeViewModel(
             TransactionRepository(FakeTransactionDao()),
             CategoryRepository(FakeCategoryDao()),
+            DeepLinkCoordinator(),
         )
         val scope = warmUp(vm.uiState)
         try {
@@ -88,7 +90,7 @@ class ScreenshotTest {
             ClarificationRepository(
                 FakeTransactionDao(),
                 FakeClarificationHistoryDao(),
-                TemplateCacheEngine(FakeTemplateCacheDao()),
+                TemplateCacheEngine(FakeTemplateCacheDao(), FakeCategoryDao()),
             ),
             CategoryRepository(FakeCategoryDao()),
         )
@@ -110,7 +112,7 @@ class ScreenshotTest {
         val vm = insightsViewModel()
         captureRoboImage("build/roborazzi/insights.png") {
             ExpenseTrackerTheme {
-                InsightsScreen(viewModel = vm)
+                InsightsScreen(viewModel = vm, onNavigateToHome = {})
             }
         }
     }
@@ -122,7 +124,7 @@ class ScreenshotTest {
         vm.submitQuery("How much did I spend on Amazon this month?")
         captureRoboImage("build/roborazzi/insights_query.png") {
             ExpenseTrackerTheme {
-                InsightsScreen(viewModel = vm)
+                InsightsScreen(viewModel = vm, onNavigateToHome = {})
             }
         }
     }
@@ -169,6 +171,7 @@ class ScreenshotTest {
             ),
             textToSQLTranslator = TextToSQLTranslator(txnDao, FakeCategoryDao()),
             anomalyDetector = AnomalyDetector(txnDao),
+            deepLinkCoordinator = DeepLinkCoordinator(),
         )
     }
 

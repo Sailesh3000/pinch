@@ -11,6 +11,8 @@ import com.expensetracker.core.model.Transaction
 import com.expensetracker.core.model.TransactionType
 import com.expensetracker.data.repository.CategoryRepository
 import com.expensetracker.data.repository.TransactionRepository
+import com.expensetracker.insights.DeepLinkCoordinator
+import com.expensetracker.insights.DeepLinkType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,10 +36,41 @@ data class HomeUiState(
 class HomeViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val categoryRepository: CategoryRepository,
+    private val deepLinkCoordinator: DeepLinkCoordinator,
 ) : ViewModel() {
 
     private val searchQuery = MutableStateFlow("")
     private val selectedCategoryId = MutableStateFlow<Long?>(null)
+
+    init {
+        // Insights cannot set these directly - it lives on a different back
+        // stack entry with its own ViewModel - so it leaves the request here
+        // and Home applies it on arrival.
+        viewModelScope.launch {
+            deepLinkCoordinator.pending.collect { request ->
+                if (request == null) return@collect
+                applyDeepLink(request)
+                deepLinkCoordinator.consume()
+            }
+        }
+    }
+
+    private suspend fun applyDeepLink(request: DeepLinkCoordinator.Request) {
+        when (request.type) {
+            DeepLinkType.MERCHANT -> {
+                selectedCategoryId.value = null
+                searchQuery.value = request.value
+            }
+            DeepLinkType.CATEGORY -> {
+                searchQuery.value = ""
+                selectedCategoryId.value = categoryRepository.getByName(request.value)?.id
+            }
+            // Home filters by merchant text and category only; there is no
+            // date-range filter to target, so this would be a silent no-op.
+            // Nothing currently emits a DATE_RANGE claim.
+            DeepLinkType.DATE_RANGE -> Unit
+        }
+    }
 
     val uiState: StateFlow<HomeUiState> = combine(
         combine(searchQuery, selectedCategoryId) { query, categoryId -> query to categoryId }

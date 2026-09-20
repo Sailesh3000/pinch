@@ -47,6 +47,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
+import com.expensetracker.insights.DeepLinkCoordinator
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -137,6 +138,7 @@ class E2EUiTest {
         val vm = HomeViewModel(
             TransactionRepository(transactionDao),
             CategoryRepository(categoryDao),
+            DeepLinkCoordinator(),
         )
 
         // Capture screenshot
@@ -194,11 +196,12 @@ class E2EUiTest {
             ),
             textToSQLTranslator = TextToSQLTranslator(transactionDao, categoryDao),
             anomalyDetector = AnomalyDetector(transactionDao),
+            deepLinkCoordinator = DeepLinkCoordinator(),
         )
 
         captureRoboImage("build/roborazzi/e2e/insights_real_data.png") {
             ExpenseTrackerTheme {
-                InsightsScreen(viewModel = vm)
+                InsightsScreen(viewModel = vm, onNavigateToHome = {})
             }
         }
     }
@@ -269,6 +272,7 @@ class E2EUiTest {
         val vm = HomeViewModel(
             TransactionRepository(transactionDao),
             CategoryRepository(categoryDao),
+            DeepLinkCoordinator(),
         )
 
         captureRoboImage("build/roborazzi/e2e/home_after_notification.png") {
