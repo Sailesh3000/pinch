@@ -10,6 +10,7 @@ import com.expensetracker.core.model.MonitoredPackage
 import com.expensetracker.data.repository.MonitoredPackageRepository
 import com.expensetracker.data.repository.TransactionRepository
 import com.expensetracker.extraction.ExtractorChain
+import com.expensetracker.extraction.MediaPipeExtractor
 import com.expensetracker.extraction.ModelAssetProvider
 import com.expensetracker.extraction.ModelDownloader
 import com.expensetracker.extraction.ModelSource
@@ -126,6 +127,25 @@ class SettingsViewModel @Inject constructor(
 
     fun refreshAiStatus() {
         viewModelScope.launch {
+            // Nudge Play to deliver the fast-follow model pack if it hasn't
+            // landed yet, so the user isn't pushed toward a redundant network
+            // download of a model the install already entitles them to.
+            modelAssetProvider.ensureFetched()
+
+            // ExtractorChain is a Hilt singleton built once at first injection,
+            // possibly before the asset pack had finished fetching - if so it
+            // was permanently constructed with no MediaPipe engine wired in,
+            // and Settings reporting "Bundled" was cosmetic only (extraction
+            // kept silently running on regex). Wire it in as soon as a bundled
+            // path actually resolves, without touching ModelDownloader (that
+            // path can trigger a real network download, which must stay
+            // opt-in via the manual "Download AI Model" button).
+            if (!extractorChain.hasMediaPipeExtractor()) {
+                modelAssetProvider.modelPath()?.let { path ->
+                    extractorChain.updateMediaPipeExtractor(MediaPipeExtractor(context, path))
+                }
+            }
+
             val nano = extractorChain.isNanoAvailable()
             nanoAvailable.value = nano
             aiEngineName.value = extractorChain.availableEngineName()

@@ -4,18 +4,33 @@ import android.app.Application
 import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.expensetracker.extraction.ExtractorChain
+import com.expensetracker.extraction.MediaPipeExtractor
+import com.expensetracker.extraction.ModelAssetProvider
 import com.expensetracker.worker.WorkScheduler
 import dagger.hilt.android.HiltAndroidApp
 import io.sentry.SentryEvent
 import io.sentry.SentryOptions
 import io.sentry.android.core.SentryAndroid
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 @HiltAndroidApp
 class ExpenseTrackerApp : Application(), Configuration.Provider {
 
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
+
+    @Inject
+    lateinit var extractorChain: ExtractorChain
+
+    @Inject
+    lateinit var modelAssetProvider: ModelAssetProvider
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -26,6 +41,27 @@ class ExpenseTrackerApp : Application(), Configuration.Provider {
         super.onCreate()
         initSentry()
         WorkScheduler.enqueueClarificationDecay(this)
+        wireBundledModelIfAvailable()
+    }
+
+    /**
+     * ExtractorChain is a Hilt singleton built at first injection, which can
+     * happen before a fast-follow Play Asset Delivery pack has finished
+     * downloading - if so it's permanently constructed with no MediaPipe
+     * engine, and extraction silently stays on regex even after the pack
+     * lands, no matter what Settings reports. Re-checking here on every
+     * process start (not just when the user happens to open Settings) is
+     * what makes the bundled model actually take effect without requiring
+     * that visit. Never touches ModelDownloader - a real network download
+     * stays opt-in via the manual "Download AI Model" button only.
+     */
+    private fun wireBundledModelIfAvailable() {
+        if (extractorChain.hasMediaPipeExtractor()) return
+        appScope.launch {
+            modelAssetProvider.modelPath()?.let { path ->
+                extractorChain.updateMediaPipeExtractor(MediaPipeExtractor(this@ExpenseTrackerApp, path))
+            }
+        }
     }
 
     /**

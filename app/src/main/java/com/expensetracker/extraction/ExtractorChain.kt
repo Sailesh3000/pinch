@@ -22,6 +22,9 @@ class ExtractorChain(
         mediaPipeExtractor = extractor
     }
 
+    /** Whether a MediaPipe engine is already wired in — avoids discarding a warm engine by rewiring redundantly. */
+    fun hasMediaPipeExtractor(): Boolean = mediaPipeExtractor != null
+
     suspend fun activeEngineName(): String = activeEngine.displayName
 
     suspend fun activeEngineType(): EngineType = activeEngine
