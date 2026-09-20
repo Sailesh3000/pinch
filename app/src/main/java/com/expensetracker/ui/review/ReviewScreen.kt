@@ -93,9 +93,13 @@ fun ReviewScreen(
         } else {
             ReviewList(
                 transactions = state.pendingTransactions,
+                expandedId = state.expandedId,
+                suggestionChips = state.suggestionChips,
+                allCategories = state.allCategories,
                 onExpand = viewModel::toggleExpand,
-                onSelectCategory = { txId, catId ->
-                    viewModel.resolveCategory(txId, catId, null)
+                onShowAllCategories = viewModel::showAllCategories,
+                onSelectCategory = { txId, catId, suggestedId ->
+                    viewModel.resolveCategory(txId, catId, suggestedId)
                 },
                 onReject = viewModel::reject,
             )
@@ -147,8 +151,12 @@ private fun EmptyReviewPlaceholder() {
 @Composable
 private fun ReviewList(
     transactions: List<TransactionWithCategory>,
+    expandedId: Long?,
+    suggestionChips: Map<Long, List<Category>>,
+    allCategories: List<Category>,
     onExpand: (Long) -> Unit,
-    onSelectCategory: (Long, Long) -> Unit,
+    onShowAllCategories: (Long) -> Unit,
+    onSelectCategory: (Long, Long, Long?) -> Unit,
     onReject: (Long) -> Unit,
 ) {
     LazyColumn(
@@ -157,12 +165,20 @@ private fun ReviewList(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(transactions, key = { it.transaction.id }) { tx ->
+            val id = tx.transaction.id
+            val chips = suggestionChips[id].orEmpty()
             ClarificationCard(
                 transaction = tx,
-                expanded = false,
-                onExpand = { onExpand(tx.transaction.id) },
-                onSelectCategory = { catId -> onSelectCategory(tx.transaction.id, catId) },
-                onReject = { onReject(tx.transaction.id) },
+                expanded = expandedId == id,
+                topChips = chips,
+                allCategories = allCategories,
+                onExpand = { onExpand(id) },
+                onShowAllCategories = { onShowAllCategories(id) },
+                // The top suggestion is what the app proposed, so it is what a
+                // correction is measured against; picking from the full list
+                // means there was no usable suggestion to compare with.
+                onSelectCategory = { catId -> onSelectCategory(id, catId, chips.firstOrNull()?.id) },
+                onReject = { onReject(id) },
             )
         }
     }
@@ -172,7 +188,10 @@ private fun ReviewList(
 fun ClarificationCard(
     transaction: TransactionWithCategory,
     expanded: Boolean,
+    topChips: List<Category>,
+    allCategories: List<Category>,
     onExpand: () -> Unit,
+    onShowAllCategories: () -> Unit,
     onSelectCategory: (Long) -> Unit,
     onReject: () -> Unit,
     modifier: Modifier = Modifier,
@@ -247,7 +266,10 @@ fun ClarificationCard(
             }
             Spacer(modifier = Modifier.height(8.dp))
             SuggestionChipRow(
-                topChips = emptyList(),
+                topChips = topChips,
+                allCategories = allCategories,
+                showAll = expanded,
+                onShowAll = onShowAllCategories,
                 onSelect = onSelectCategory,
             )
         }
@@ -257,19 +279,26 @@ fun ClarificationCard(
 @Composable
 private fun SuggestionChipRow(
     topChips: List<Category>,
+    allCategories: List<Category>,
+    showAll: Boolean,
+    onShowAll: () -> Unit,
     onSelect: (Long) -> Unit,
 ) {
+    // Once the full list is open the top suggestions are already in it, so
+    // showing both would just repeat the same three chips twice.
+    val categories = if (showAll) allCategories else topChips
     Column {
-        if (topChips.isNotEmpty()) {
+        if (categories.isNotEmpty()) {
             CategoryChipPicker(
-                categories = topChips,
+                categories = categories,
                 selectedCategoryId = null,
                 onSelect = onSelect,
             )
         }
+        if (showAll) return@Column
         FilterChip(
             selected = false,
-            onClick = { },
+            onClick = onShowAll,
             label = { Text("Select another...") },
             shape = RoundedCornerShape(50),
             colors = FilterChipDefaults.filterChipColors(
