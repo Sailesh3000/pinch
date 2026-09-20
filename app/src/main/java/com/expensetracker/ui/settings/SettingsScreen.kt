@@ -377,7 +377,11 @@ private fun AiEngineCard(uiState: SettingsUiState, onDownload: () -> Unit) {
                 }
             }
 
-            if (uiState.nanoAvailable == false) {
+            // Bundled already has its own confirmation row above; showing the
+            // download prompt on top of it contradicts "AI Model: Bundled with
+            // app" and is exactly the "why does it still ask to download"
+            // confusion this branch used to cause.
+            if (uiState.nanoAvailable == false && uiState.modelSource != ModelSource.BUNDLED) {
                 when {
                     uiState.modelSource == ModelSource.DOWNLOADED -> {
                         Spacer(modifier = Modifier.height(12.dp))
