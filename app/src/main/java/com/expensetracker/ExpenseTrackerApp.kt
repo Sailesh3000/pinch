@@ -49,17 +49,33 @@ class ExpenseTrackerApp : Application(), Configuration.Provider {
      * happen before a fast-follow Play Asset Delivery pack has finished
      * downloading - if so it's permanently constructed with no MediaPipe
      * engine, and extraction silently stays on regex even after the pack
-     * lands, no matter what Settings reports. Re-checking here on every
-     * process start (not just when the user happens to open Settings) is
-     * what makes the bundled model actually take effect without requiring
-     * that visit. Never touches ModelDownloader - a real network download
-     * stays opt-in via the manual "Download AI Model" button only.
+     * lands, no matter what Settings reports.
+     *
+     * Checking the path once is not enough: fast-follow packs arrive *after*
+     * install finishes, so on a real Play install the first check reliably
+     * misses and the app latches onto regex for the whole session. Collecting
+     * modelReady instead picks the model up whenever it actually lands.
+     *
+     * Initialization is deliberately driven from here rather than from the
+     * Settings ViewModel: building the engine takes ~10s (XNNPACK cache), and
+     * in viewModelScope that work is cancelled the moment the user leaves the
+     * screen, leaving the engine half-built and the UI reporting regex.
+     *
+     * Never touches ModelDownloader - a real network download stays opt-in via
+     * the manual "Download AI Model" button only.
      */
     private fun wireBundledModelIfAvailable() {
-        if (extractorChain.hasMediaPipeExtractor()) return
         appScope.launch {
-            modelAssetProvider.modelPath()?.let { path ->
-                extractorChain.updateMediaPipeExtractor(MediaPipeExtractor(this@ExpenseTrackerApp, path))
+            modelAssetProvider.ensureFetched()
+            modelAssetProvider.modelReady.collect { ready ->
+                if (!ready || extractorChain.hasMediaPipeExtractor()) return@collect
+                val path = modelAssetProvider.modelPath() ?: return@collect
+                val extractor = MediaPipeExtractor(this@ExpenseTrackerApp, path)
+                extractorChain.updateMediaPipeExtractor(extractor)
+                // Force engine construction now, on a scope that outlives the
+                // UI, so the first notification isn't the one that pays for it.
+                val ok = extractor.isAvailable()
+                Log.i(TAG, "Bundled model wired from $path, engine ready=$ok")
             }
         }
     }

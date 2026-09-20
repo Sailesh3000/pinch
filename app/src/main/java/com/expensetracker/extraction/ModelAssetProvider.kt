@@ -3,11 +3,16 @@ package com.expensetracker.extraction
 import android.content.Context
 import android.util.Log
 import com.google.android.play.core.assetpacks.AssetPackManagerFactory
+import com.google.android.play.core.assetpacks.AssetPackStateUpdateListener
+import com.google.android.play.core.assetpacks.model.AssetPackStatus
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.FileOutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Locates the AI model delivered via Play Asset Delivery (PAD).
@@ -40,21 +45,55 @@ class ModelAssetProvider @Inject constructor(
         }
     }
 
+    private val _modelReady = MutableStateFlow(false)
+
+    /**
+     * Emits true once the model is on disk and usable.
+     *
+     * A fast-follow pack lands *after* install completes, so on a Play install
+     * the model is routinely absent for the first seconds of the first session.
+     * Anything that reads [modelPath] once and caches the answer therefore
+     * latches "no model" permanently. Collecting this instead lets callers wire
+     * the engine up whenever the pack actually arrives.
+     */
+    val modelReady: StateFlow<Boolean> = _modelReady.asStateFlow()
+
+    private val packListener = AssetPackStateUpdateListener { state ->
+        if (state.name() != PACK_NAME) return@AssetPackStateUpdateListener
+        when (state.status()) {
+            AssetPackStatus.COMPLETED -> {
+                Log.i(TAG, "Asset pack '$PACK_NAME' download completed")
+                refreshReady()
+            }
+            AssetPackStatus.FAILED ->
+                Log.e(TAG, "Asset pack '$PACK_NAME' failed, errorCode=${state.errorCode()}")
+            else -> {}
+        }
+    }
+
     /** Absolute path to the bundled model, or null when no delivery path has it yet. */
     fun modelPath(): String? = dynamicPackPath() ?: fusedAssetPath()
 
     /** Whether a bundled copy of the model is ready to use. */
     fun isAvailable(): Boolean = modelPath() != null
 
+    /** Recomputes [modelReady]; cheap once the model is on disk. */
+    private fun refreshReady() {
+        _modelReady.value = modelPath() != null
+    }
+
     /**
-     * Asks Play to fetch the fast-follow pack if it is not on disk yet. Safe to
-     * call repeatedly — Play no-ops when the pack is already installed. Callers
-     * keep running on the regex tier until the pack lands.
+     * Asks Play to fetch the fast-follow pack if it is not on disk yet, and
+     * registers for completion so late arrivals are noticed. Safe to call
+     * repeatedly — Play no-ops when the pack is already installed. Callers keep
+     * running on the regex tier until [modelReady] flips.
      */
     fun ensureFetched() {
-        if (dynamicPackPath() != null) return
+        refreshReady()
+        if (_modelReady.value) return
         val manager = assetPackManager ?: return
         try {
+            manager.registerListener(packListener)
             manager.fetch(listOf(PACK_NAME))
             Log.i(TAG, "Requested fetch of asset pack '$PACK_NAME'")
         } catch (t: Throwable) {

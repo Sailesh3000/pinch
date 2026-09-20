@@ -72,6 +72,9 @@ class SettingsViewModel @Inject constructor(
         downloadError,
         isExporting,
         exportResult,
+        // Not read below: present so the pack landing re-runs resolveModelSource()
+        // instead of leaving it to whenever some unrelated flow happens to emit.
+        modelAssetProvider.modelReady,
     ) { values ->
         val currentNano = values[2] as? Boolean
         val currentModelSource = resolveModelSource()
@@ -97,6 +100,19 @@ class SettingsViewModel @Inject constructor(
         // ViewModel recreated while a download is already in flight (e.g. navigating
         // away from and back to Settings) has no idea a download is running, shows
         // "Download"/"Retry" again, and a tap re-enqueues on top of the real one.
+        // aiEngineName is only written by refreshAiStatus(), which fires on
+        // Settings resume. On a Play install the fast-follow pack usually
+        // hasn't landed by then, so that one write latched "regex" while
+        // modelSource - recomputed on every combine emission - independently
+        // flipped to BUNDLED, producing a screen that claimed the model was
+        // bundled *and* that regex was active. Re-resolving when the model
+        // lands keeps the two halves telling the same story.
+        viewModelScope.launch {
+            modelAssetProvider.modelReady.collect { ready ->
+                if (ready) refreshAiStatus()
+            }
+        }
+
         viewModelScope.launch {
             modelDownloader.state.collect { state ->
                 when (state) {
