@@ -2,21 +2,29 @@ package com.expensetracker.extraction
 
 import android.content.Context
 import android.util.Log
-import com.google.mediapipe.tasks.genai.llminference.LlmInference
-import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
-import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession.LlmInferenceSessionOptions
+import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.ConversationConfig
+import com.google.ai.edge.litertlm.Engine
+import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.SamplerConfig
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Tier 1 fallback extractor — MediaPipe LLM Inference with Gemma 3 1B
- * (FR-EXTRACT-02, spec §11). Used on devices where Gemini Nano (AICore) is
- * unavailable. Uses the same literal-extractor system prompt as GeminiNanoExtractor.
+ * Tier 1 fallback extractor — on-device LLM inference with a fine-tuned
+ * Qwen2.5-0.5B (FR-EXTRACT-02, spec §11). Used on devices where Gemini Nano
+ * (AICore) is unavailable. Runs on the LiteRT-LM runtime (`Engine`/
+ * `Conversation`), not the older MediaPipe `LlmInference` API — the
+ * `.litertlm` file this app ships embeds a HuggingFace-format tokenizer,
+ * which only the LiteRT-LM runtime knows how to load; `LlmInference`
+ * requires a SentencePiece-format tokenizer and fails with
+ * "SentencePiece tokenizer is not found in the model" on this file.
  *
- * Model must be downloaded to internal storage first (see ModelDownloader).
- * Uses synchronous generateResponse() to avoid session threading issues.
+ * Model must be resolved to a real file path first (see ModelAssetProvider /
+ * ModelDownloader). A fresh, history-free `Conversation` is created per call
+ * so extraction stays stateless and deterministic across notifications.
  */
 open class MediaPipeExtractor(
     private val context: Context?,
@@ -28,25 +36,38 @@ open class MediaPipeExtractor(
 
     override val engineName: String = "MediaPipe Qwen2.5-0.5B (Local Engine)"
 
-    private var llmInference: LlmInference? = null
+    private var engine: Engine? = null
     private val initLock = Any()
 
-    private fun ensureInitialized(): Boolean {
-        if (llmInference != null) return true
+    /** Deterministic sampling — greedy decoding, matches the old temperature=0/topK=1 setup. */
+    private val samplerConfig = SamplerConfig(topK = 1, topP = 1.0, temperature = 0.0)
+
+    private suspend fun ensureInitialized(): Boolean {
+        if (engine != null) return true
         val ctx = context ?: return false
-        synchronized(initLock) {
-            if (llmInference != null) return true
-            return try {
-                val options = LlmInference.LlmInferenceOptions.builder()
-                    .setModelPath(modelPath)
-                    .setMaxTokens(MAX_TOKENS)
-                    .build()
-                llmInference = LlmInference.createFromOptions(ctx.applicationContext, options)
-                true
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to initialize MediaPipe LLM", e)
-                false
+        return withContext(Dispatchers.IO) {
+            synchronized(initLock) {
+                if (engine != null) return@withContext true
             }
+            val newEngine = try {
+                Engine(
+                    EngineConfig(
+                        modelPath = modelPath,
+                        cacheDir = ctx.applicationContext.cacheDir.path,
+                    )
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to construct LiteRT-LM engine", e)
+                return@withContext false
+            }
+            try {
+                newEngine.initialize()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to initialize LiteRT-LM engine", e)
+                return@withContext false
+            }
+            synchronized(initLock) { engine = newEngine }
+            true
         }
     }
 
@@ -59,86 +80,55 @@ open class MediaPipeExtractor(
         timestampEpoch: Long,
     ): ExtractionResult? {
         if (!ensureInitialized()) return null
-        val inference = llmInference ?: return null
+        val prompt = buildPrompt(packageName, title, body)
+        val responseText = generateSync(prompt) ?: return null
 
-        return try {
-            val sessionOptions = LlmInferenceSessionOptions.builder()
-                .setTemperature(0.0f)
-                .setTopK(1)
-                .build()
-
-            val session = LlmInferenceSession.createFromOptions(inference, sessionOptions)
-            val prompt = buildPrompt(packageName, title, body)
-
-            val responseText = generateSync(session, prompt)
-
-            session.close()
-
-            if (responseText.isNullOrBlank()) {
-                Log.w(TAG, "MediaPipe returned blank response")
-                return null
-            }
-            Log.d(TAG, "MediaPipe raw response: $responseText")
-            val parsed = parseStrictJson(responseText) ?: return null
-            val merchant = cleanMerchant(parsed.merchantOrPayee, title, body)
-            val category = if (parsed.category.isBlank() || parsed.category.equals("Uncategorized", true)) {
-                regexExtractor.inferCategory(merchant)
-            } else {
-                parsed.category
-            }
-            return parsed.copy(merchantOrPayee = merchant, category = category)
-        } catch (e: Exception) {
-            Log.e(TAG, "MediaPipe extraction failed", e)
-            null
+        if (responseText.isBlank()) {
+            Log.w(TAG, "MediaPipe returned blank response")
+            return null
         }
+        Log.d(TAG, "MediaPipe raw response: $responseText")
+        val parsed = parseStrictJson(responseText) ?: return null
+        val merchant = cleanMerchant(parsed.merchantOrPayee, title, body)
+        val category = if (parsed.category.isBlank() || parsed.category.equals("Uncategorized", true)) {
+            regexExtractor.inferCategory(merchant)
+        } else {
+            parsed.category
+        }
+        return parsed.copy(merchantOrPayee = merchant, category = category)
     }
 
     /**
-     * Free-form narrative completion (FR-INSIGHT-02). Reuses the same session
-     * machinery as extraction but returns the raw text instead of parsed JSON.
+     * Free-form narrative completion (FR-INSIGHT-02). Reuses the same engine
+     * as extraction but returns the raw text instead of parsed JSON.
      */
     open override suspend fun generateText(prompt: String): String? {
         if (!ensureInitialized()) return null
-        val inference = llmInference ?: return null
-        return try {
-            val sessionOptions = LlmInferenceSessionOptions.builder()
-                .setTemperature(0.0f)
-                .setTopK(1)
-                .build()
-            val session = LlmInferenceSession.createFromOptions(inference, sessionOptions)
-            val responseText = generateSync(session, prompt)
-            session.close()
-            responseText?.trim()
-        } catch (e: Exception) {
-            Log.e(TAG, "MediaPipe narrative generation failed", e)
-            null
-        }
+        return generateSync(prompt)?.trim()
     }
 
     /**
-     * Synchronous response generation using a CountDownLatch.
-     * The MediaPipe callback streams partial-result deltas; we accumulate them
-     * and complete once the `done` flag is set.
+     * Runs one stateless turn: a fresh conversation per call, so no history
+     * leaks between notifications. `sendMessage` is synchronous on the
+     * LiteRT-LM API, unlike the old MediaPipe callback+latch dance.
      */
-    private fun generateSync(session: LlmInferenceSession, prompt: String): String? {
-        val result = AtomicReference<String?>(null)
-        val latch = CountDownLatch(1)
-
-        session.addQueryChunk(prompt)
-        val accumulated = StringBuilder()
-        session.generateResponseAsync { partialResult, done ->
-            if (partialResult != null && partialResult.isNotEmpty()) {
-                accumulated.append(partialResult)
-            }
-            if (done) {
-                result.set(accumulated.toString())
-                latch.countDown()
+    private suspend fun generateSync(prompt: String): String? {
+        val activeEngine = engine ?: return null
+        return withContext(Dispatchers.IO) {
+            try {
+                activeEngine.createConversation(ConversationConfig(samplerConfig = samplerConfig)).use { conversation ->
+                    conversation.sendMessage(prompt).text()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "LiteRT-LM generation failed", e)
+                null
             }
         }
-
-        latch.await(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        return result.get()
     }
+
+    /** Concatenates every text part of a response; the model always answers in plain text. */
+    private fun Message.text(): String? =
+        contents.contents.filterIsInstance<Content.Text>().joinToString("") { it.text }.ifBlank { null }
 
     /**
      * Post-processes the model's merchant output. The 0.5B model often returns
@@ -189,14 +179,12 @@ open class MediaPipeExtractor(
     }
 
     fun close() {
-        llmInference?.close()
-        llmInference = null
+        engine?.close()
+        engine = null
     }
 
     companion object {
         private const val TAG = "MediaPipeExtractor"
-        private const val MAX_TOKENS = 1024
-        private const val TIMEOUT_SECONDS = 30L
         private const val CATEGORY_LIST = "Food & Dining, Groceries, Transportation, Shopping, Bills & Utilities, " +
             "Rent, Entertainment, Health & Medical, Investment, Friend/Transfer, Salary/Income, Uncategorized"
     }
