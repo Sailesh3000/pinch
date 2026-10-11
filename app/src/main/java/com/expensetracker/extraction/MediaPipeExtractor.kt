@@ -158,15 +158,51 @@ open class MediaPipeExtractor(
         }
     }
 
+    /**
+     * Finds the first balanced {...} object, walking brace depth rather than
+     * jumping to the text's last '}'. The model reliably writes the correct
+     * JSON answer first but, observed in production (v5 model, GREEDY
+     * decode), sometimes free-runs past its stop tokens into a hallucinated
+     * continuation - a fake Python function whose own `return {...}` dict
+     * supplies a *later* closing brace. lastIndexOf('}') picked that one,
+     * handing the parser `{...valid json...} def analyze_financial_transaction...
+     * {...garbage...}` as one string and failing outright, which silently
+     * downgraded the whole extraction from the model's 0.9 confidence to the
+     * regex tier's 0.45. Stopping at the first balanced close is correct
+     * regardless of how much the model rambles afterward, and costs nothing
+     * when the model behaves and stops immediately.
+     */
     private fun extractJsonBlock(text: String): String? {
         // Strip any markdown code fences the model may wrap around JSON.
         val cleaned = text
             .replace(Regex("""```[a-zA-Z]*"""), "")
             .trim()
         val start = cleaned.indexOf('{')
-        val end = cleaned.lastIndexOf('}')
-        if (start < 0 || end <= start) return null
-        return cleaned.substring(start, end + 1)
+        if (start < 0) return null
+
+        var depth = 0
+        var inString = false
+        var escaped = false
+        for (i in start until cleaned.length) {
+            val c = cleaned[i]
+            if (inString) {
+                when {
+                    escaped -> escaped = false
+                    c == '\\' -> escaped = true
+                    c == '"' -> inString = false
+                }
+                continue
+            }
+            when (c) {
+                '"' -> inString = true
+                '{' -> depth++
+                '}' -> {
+                    depth--
+                    if (depth == 0) return cleaned.substring(start, i + 1)
+                }
+            }
+        }
+        return null // never closed — e.g. truncated mid-object at the token cap
     }
 
     // Minimal input — matches the SFT dataset this model was fine-tuned on
