@@ -112,6 +112,71 @@ class TextToSQLTranslatorTest {
     }
 
     @Test
+    fun `translate - merchant without period defaults to this month`() = runTest {
+        val plan = translator.translateToSQL("How much on Swiggy?")
+        assertNotNull(plan)
+        assertEquals("Total spent on swiggy this month", plan!!.description)
+        val withVerb = translator.translateToSQL("How much did I spend on Swiggy?")
+        assertNotNull(withVerb)
+        assertEquals("Total spent on swiggy this month", withVerb!!.description)
+    }
+
+    @Test
+    fun `translate - pay for merchant`() = runTest {
+        val plan = translator.translateToSQL("how much did I pay for netflix last month")
+        assertNotNull(plan)
+        assertEquals("Total spent on netflix last month", plan!!.description)
+    }
+
+    @Test
+    fun `translate - earned this month`() = runTest {
+        val plan = translator.translateToSQL("How much did I earn this month?")
+        assertNotNull(plan)
+        assertEquals("Total received this month", plan!!.description)
+    }
+
+    @Test
+    fun `translate - total spend is not mistaken for a merchant`() = runTest {
+        val plan = translator.translateToSQL("Total spending this month")
+        assertNotNull(plan)
+        assertEquals("Total spend this month", plan!!.description)
+    }
+
+    @Test
+    fun `translate - placeholder example this week`() = runTest {
+        // The ask bar's own hint text; it used to parse "food this week" as a merchant.
+        val plan = translator.translateToSQL("How much on food this week?")
+        assertNotNull(plan)
+        assertEquals("Total spent on food this week", plan!!.description)
+    }
+
+    @Test
+    fun `translate - total today`() = runTest {
+        val plan = translator.translateToSQL("how much did I spend today")
+        assertNotNull(plan)
+        assertEquals("Total spend today", plan!!.description)
+    }
+
+    @Test
+    fun `category match - word prefix of seeded names`() {
+        assertEquals(true, QueryPlan.categoryMatches("Food & Dining", "food"))
+        assertEquals(true, QueryPlan.categoryMatches("Bills & Utilities", "bills"))
+        assertEquals(true, QueryPlan.categoryMatches("Shopping", "shopping"))
+        assertEquals(false, QueryPlan.categoryMatches("Entertainment", "rent"))
+        assertEquals(false, QueryPlan.categoryMatches("Food & Dining", "swiggy"))
+    }
+
+    @Test
+    fun `period ranges - week starts monday, last week precedes it`() {
+        val wed = java.time.ZonedDateTime.of(2026, 11, 11, 15, 0, 0, 0, java.time.ZoneId.of("Asia/Kolkata"))
+        val (start, end) = QueryPeriod.THIS_WEEK.range(wed)
+        val mon = java.time.ZonedDateTime.of(2026, 11, 9, 0, 0, 0, 0, wed.zone).toInstant().toEpochMilli()
+        assertEquals(mon, start)
+        assertEquals(mon + 7 * 86_400_000L - 1, end)
+        assertEquals(mon - 1, QueryPeriod.LAST_WEEK.range(wed).second)
+    }
+
+    @Test
     fun `translate - case insensitive`() = runTest {
         val plan = translator.translateToSQL("HOW MUCH DID I SPEND ON SWIGGY THIS MONTH?")
         assertNotNull(plan)

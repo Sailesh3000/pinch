@@ -54,8 +54,12 @@ interface TransactionDao {
         SELECT t.*, c.name AS category_name, c.icon_key AS category_icon_key, c.color_hex AS category_color_hex
         FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
-        WHERE (:search IS NULL OR :search = '' OR t.merchant_name LIKE '%' || :search || '%'
-               OR COALESCE(t.clean_payee, '') LIKE '%' || :search || '%')
+        WHERE (:search IS NULL OR :search = ''
+               OR t.merchant_name LIKE '%' || :search || '%'
+               OR COALESCE(t.clean_payee, '') LIKE '%' || :search || '%'
+               OR COALESCE(c.name, '') LIKE '%' || :search || '%'
+               OR CAST(t.amount AS TEXT) LIKE '%' || :search || '%'
+               OR t.raw_notification_text LIKE '%' || :search || '%')
           AND (:categoryId IS NULL OR t.category_id = :categoryId)
         ORDER BY t.timestamp DESC, t.id DESC
         """

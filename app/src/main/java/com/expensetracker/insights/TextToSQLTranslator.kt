@@ -49,37 +49,35 @@ class TextToSQLTranslator(
         }
     }
 
-    private fun matchKnownPattern(question: String): QueryPlan? {
-        // "How much did I spend on {merchant} this/last month?"
-        val merchantMonth = Regex(
-            """(?:how much|spend|spent).*(?:on|at)\s+(.+?)\s+(?:this|current)\s+month""",
-            RegexOption.IGNORE_CASE,
-        ).find(question)
-        if (merchantMonth != null) {
-            val merchant = merchantMonth.groupValues[1].trim()
-            return QueryPlan.merchantMonth(merchant, currentMonth = true)
+    private fun matchKnownPattern(rawQuestion: String): QueryPlan? {
+        val question = rawQuestion.trimEnd('?', '.', '!', ' ')
+        // Without a period every question means this month, not "no answer".
+        val period = QueryPeriod.entries.firstOrNull { question.contains(it.pattern) } ?: QueryPeriod.THIS_MONTH
+
+        // "How much did I earn / receive this month?" - credits, not spend.
+        if (question.contains(Regex("""\b(?:earn|earned|earning|earnings|receive|received|income|credited|got paid)\b"""))) {
+            return QueryPlan.earned(period)
         }
 
-        val merchantLastMonth = Regex(
-            """(?:how much|spend|spent).*(?:on|at)\s+(.+?)\s+last\s+month""",
-            RegexOption.IGNORE_CASE,
+        // "How much did I spend on {merchant|category} [period]?"
+        val spendOn = Regex(
+            """(?:how much|spend|spent|paid|pay)\b.*?\b(?:on|at|for)\s+(.+)$""",
         ).find(question)
-        if (merchantLastMonth != null) {
-            val merchant = merchantLastMonth.groupValues[1].trim()
-            return QueryPlan.merchantMonth(merchant, currentMonth = false)
+        if (spendOn != null) {
+            val target = spendOn.groupValues[1].replace(PERIOD_SUFFIX, "").trim()
+            if (target.isNotEmpty() && target !in PERIOD_WORDS) {
+                return QueryPlan.spendOn(target, period)
+            }
         }
 
-        // "How much did I spend this month?" / "total spending this month"
-        if (question.contains(Regex("""(?:total|how much).*(?:spend|spent).*(?:this|current)\s+month""", RegexOption.IGNORE_CASE))) {
-            return QueryPlan.totalMonth(currentMonth = true)
-        }
-        if (question.contains(Regex("""(?:total|how much).*(?:spend|spent).*last\s+month""", RegexOption.IGNORE_CASE))) {
-            return QueryPlan.totalMonth(currentMonth = false)
+        // "How much did I spend this month?" / "total spending this week"
+        if (question.contains(Regex("""(?:total|how much).*(?:spend|spent)"""))) {
+            return QueryPlan.total(period)
         }
 
         // "How many transactions this month?"
-        if (question.contains(Regex("""(?:how many|count).*(?:transaction|txn|order|payment).*(?:this|current)\s+month""", RegexOption.IGNORE_CASE))) {
-            return QueryPlan.countMonth(currentMonth = true)
+        if (question.contains(Regex("""(?:how many|count).*(?:transaction|txn|order|payment)"""))) {
+            return QueryPlan.count(period)
         }
 
         // "What category did I spend most on?"
@@ -97,6 +95,37 @@ class TextToSQLTranslator(
 
     companion object {
         private const val TAG = "TextToSQLTranslator"
+
+        /** Captures that are a period, not a merchant: "spend for the month". */
+        private val PERIOD_WORDS = setOf("the month", "the week", "month", "week")
+
+        /** Trailing period phrase to strip from a merchant capture: "food this week". */
+        private val PERIOD_SUFFIX = Regex("""\s*\b(?:this|current|last|past)\s+(?:week|month)$|\s*\btoday$""")
+    }
+}
+
+/** Time window a question asks about; ranges are in the device's local zone. */
+enum class QueryPeriod(val label: String, val pattern: Regex) {
+    TODAY("today", Regex("""\btoday\b""")),
+    THIS_WEEK("this week", Regex("""\b(?:this|current)\s+week\b""")),
+    LAST_WEEK("last week", Regex("""\b(?:last|past)\s+week\b""")),
+    LAST_MONTH("last month", Regex("""\b(?:last|past)\s+month\b""")),
+    THIS_MONTH("this month", Regex("""\b(?:this|current)\s+month\b"""));
+
+    fun range(now: java.time.ZonedDateTime = java.time.ZonedDateTime.now()): Pair<Long, Long> {
+        val today = now.toLocalDate()
+        val weekStart = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+        val monthStart = today.withDayOfMonth(1)
+        val (from, until) = when (this) {
+            TODAY -> today to today.plusDays(1)
+            THIS_WEEK -> weekStart to weekStart.plusWeeks(1)
+            LAST_WEEK -> weekStart.minusWeeks(1) to weekStart
+            THIS_MONTH -> monthStart to monthStart.plusMonths(1)
+            LAST_MONTH -> monthStart.minusMonths(1) to monthStart
+        }
+        val zone = now.zone
+        return from.atStartOfDay(zone).toInstant().toEpochMilli() to
+            until.atStartOfDay(zone).toInstant().toEpochMilli() - 1L
     }
 }
 
@@ -109,71 +138,69 @@ data class QueryPlan(
     val execute: suspend (TransactionDao) -> String,
 ) {
     companion object {
-        private fun currentMonthRange(): Pair<Long, Long> {
-            val cal = java.util.Calendar.getInstance()
-            cal.set(java.util.Calendar.DAY_OF_MONTH, 1)
-            cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
-            cal.set(java.util.Calendar.MINUTE, 0)
-            cal.set(java.util.Calendar.SECOND, 0)
-            cal.set(java.util.Calendar.MILLISECOND, 0)
-            val start = cal.timeInMillis
-            cal.add(java.util.Calendar.MONTH, 1)
-            val end = cal.timeInMillis - 1
-            return start to end
-        }
-
-        private fun lastMonthRange(): Pair<Long, Long> {
-            val cal = java.util.Calendar.getInstance()
-            cal.add(java.util.Calendar.MONTH, -1)
-            cal.set(java.util.Calendar.DAY_OF_MONTH, 1)
-            cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
-            cal.set(java.util.Calendar.MINUTE, 0)
-            cal.set(java.util.Calendar.SECOND, 0)
-            cal.set(java.util.Calendar.MILLISECOND, 0)
-            val start = cal.timeInMillis
-            cal.add(java.util.Calendar.MONTH, 1)
-            val end = cal.timeInMillis - 1
-            return start to end
-        }
-
-        fun merchantMonth(merchant: String, currentMonth: Boolean): QueryPlan {
-            val (start, end) = if (currentMonth) currentMonthRange() else lastMonthRange()
-            val label = if (currentMonth) "this month" else "last month"
+        fun spendOn(target: String, period: QueryPeriod): QueryPlan {
+            val (start, end) = period.range()
+            val label = period.label
             return QueryPlan(
-                description = "Total spent on $merchant $label",
+                description = "Total spent on $target $label",
                 execute = { dao ->
-                    val value = dao.spendByMerchant(merchant, start, end)
-                    "${Formatters.money(value)} spent on $merchant $label"
+                    // A category ("food" -> "Food & Dining") beats a merchant
+                    // substring match, which would answer ₹0 for category questions.
+                    val category = dao.categoryBreakdown(start, end)
+                        .firstOrNull { categoryMatches(it.categoryName, target) }
+                    if (category != null) {
+                        "${Formatters.money(category.totalAmount)} spent on ${category.categoryName} $label"
+                    } else {
+                        val value = dao.spendByMerchant(target, start, end)
+                        "${Formatters.money(value)} spent on $target $label"
+                    }
                 },
             )
         }
 
-        fun totalMonth(currentMonth: Boolean): QueryPlan {
-            val (start, end) = if (currentMonth) currentMonthRange() else lastMonthRange()
-            val label = if (currentMonth) "this month" else "last month"
+        /** Whole name, or any word of it ("food", "bills", "health") as a prefix. */
+        internal fun categoryMatches(categoryName: String, target: String): Boolean {
+            if (categoryName.equals(target, ignoreCase = true)) return true
+            if (target.length < 3) return false
+            return categoryName.split(Regex("""[^\p{L}]+"""))
+                .any { word -> word.length >= 3 && word.startsWith(target, ignoreCase = true) }
+        }
+
+        fun earned(period: QueryPeriod): QueryPlan {
+            val (start, end) = period.range()
             return QueryPlan(
-                description = "Total spend $label",
+                description = "Total received ${period.label}",
+                execute = { dao ->
+                    val value = dao.sumCreditsBetween(start, end)
+                    "${Formatters.money(value)} received ${period.label}"
+                },
+            )
+        }
+
+        fun total(period: QueryPeriod): QueryPlan {
+            val (start, end) = period.range()
+            return QueryPlan(
+                description = "Total spend ${period.label}",
                 execute = { dao ->
                     val value = dao.totalDebitsBetween(start, end)
-                    "${Formatters.money(value)} spent $label"
+                    "${Formatters.money(value)} spent ${period.label}"
                 },
             )
         }
 
-        fun countMonth(currentMonth: Boolean): QueryPlan {
-            val (start, end) = if (currentMonth) currentMonthRange() else lastMonthRange()
-            val label = if (currentMonth) "this month" else "last month"
+        fun count(period: QueryPeriod): QueryPlan {
+            val (start, end) = period.range()
             return QueryPlan(
-                description = "Transaction count $label",
+                description = "Transaction count ${period.label}",
                 execute = { dao ->
                     val count = dao.debitCountBetween(start, end)
-                    "$count transactions $label"
+                    "$count transactions ${period.label}"
                 },
             )
         }
 
         fun topCategory(): QueryPlan {
-            val (start, end) = currentMonthRange()
+            val (start, end) = QueryPeriod.THIS_MONTH.range()
             return QueryPlan(
                 description = "Top category spend",
                 execute = { dao ->
@@ -189,7 +216,7 @@ data class QueryPlan(
         }
 
         fun largestTransaction(): QueryPlan {
-            val (start, end) = currentMonthRange()
+            val (start, end) = QueryPeriod.THIS_MONTH.range()
             return QueryPlan(
                 description = "Largest single transaction",
                 execute = { dao ->

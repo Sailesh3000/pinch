@@ -14,11 +14,17 @@ import com.expensetracker.data.repository.TransactionRepository
 import com.expensetracker.insights.DeepLinkCoordinator
 import com.expensetracker.insights.DeepLinkType
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -72,8 +78,22 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Raw text of the search field. The TextField binds to this directly:
+     * routing keystrokes through the combined [uiState] (which waits on a DB
+     * query) lags the field behind the IME, dropping characters mid-typing.
+     */
+    val searchText: StateFlow<String> = searchQuery.asStateFlow()
+
+    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<HomeUiState> = combine(
-        combine(searchQuery, selectedCategoryId) { query, categoryId -> query to categoryId }
+        combine(
+            searchQuery
+                .map { it.trim() }
+                .distinctUntilChanged()
+                .debounce { if (it.isEmpty()) 0L else SEARCH_DEBOUNCE_MS },
+            selectedCategoryId,
+        ) { query, categoryId -> query to categoryId }
             .flatMapLatest { (query, categoryId) ->
                 transactionRepository.observeFiltered(
                     search = query.takeIf { it.isNotBlank() },
@@ -107,6 +127,13 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             transactionRepository.updateCategory(transactionId, categoryId)
             categoryRepository.incrementUsage(categoryId)
+        }
+    }
+
+    fun updateAmount(transactionId: Long, amount: Double) {
+        if (amount <= 0.0) return
+        viewModelScope.launch {
+            transactionRepository.updateAmount(transactionId, amount)
         }
     }
 
@@ -148,5 +175,9 @@ class HomeViewModel @Inject constructor(
             )
             categoryRepository.incrementUsage(categoryId)
         }
+    }
+
+    private companion object {
+        const val SEARCH_DEBOUNCE_MS = 250L
     }
 }

@@ -33,15 +33,15 @@ class TransactionRepository @Inject constructor(
     /** Reactive month-to-date summary computed deterministically in Kotlin. */
     fun observeMonthSummary(nowEpochMillis: () -> Long = { System.currentTimeMillis() }): Flow<DeterministicMathEngine.MonthSpendSummary> =
         transactionDao.observeAll().map { rows ->
+            val (debits, credits) = rows
+                .map { it.transaction }
+                .partition { it.txnType == TransactionType.DEBIT.dbValue }
             DeterministicMathEngine.monthSpendSummary(
-                transactions = rows.mapNotNull { row ->
-                    if (row.transaction.txnType == TransactionType.DEBIT.dbValue) {
-                        row.transaction.amount to row.transaction.timestamp
-                    } else {
-                        null
-                    }
-                },
+                transactions = debits.map { it.amount to it.timestamp },
                 nowEpochMillis = nowEpochMillis(),
+                credits = credits
+                    .filter { it.txnType == TransactionType.CREDIT.dbValue }
+                    .map { it.amount to it.timestamp },
             )
         }
 
@@ -58,6 +58,12 @@ class TransactionRepository @Inject constructor(
     suspend fun updateCategory(transactionId: Long, categoryId: Long) {
         val existing = transactionDao.getById(transactionId) ?: return
         transactionDao.update(existing.copy(categoryId = categoryId, needsClarification = false, isClarified = true))
+    }
+
+    /** User correction of a mis-extracted amount; counts as a clarification. */
+    suspend fun updateAmount(transactionId: Long, amount: Double) {
+        val existing = transactionDao.getById(transactionId) ?: return
+        transactionDao.update(existing.copy(amount = amount, needsClarification = false, isClarified = true))
     }
 
     suspend fun markMerged(dedupHash: String) = transactionDao.markMerged(dedupHash)

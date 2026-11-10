@@ -157,7 +157,10 @@ class FakeTransactionDao(
         sorted.filter { row ->
             val matchesSearch = search.isNullOrBlank() ||
                 row.transaction.merchantName.contains(search, ignoreCase = true) ||
-                (row.transaction.cleanPayee ?: "").contains(search, ignoreCase = true)
+                (row.transaction.cleanPayee ?: "").contains(search, ignoreCase = true) ||
+                (row.categoryName ?: "").contains(search, ignoreCase = true) ||
+                row.transaction.amount.toString().contains(search) ||
+                row.transaction.rawNotificationText.contains(search, ignoreCase = true)
             val matchesCategory = categoryId == null || row.transaction.categoryId == categoryId
             matchesSearch && matchesCategory
         }.toList(),

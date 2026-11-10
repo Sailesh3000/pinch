@@ -18,7 +18,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.ButtonDefaults
@@ -27,10 +31,13 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -43,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.expensetracker.core.common.Formatters
@@ -65,8 +73,11 @@ fun TransactionDetailSheet(
     onDismiss: () -> Unit,
     onUpdateCategory: (transactionId: Long, categoryId: Long) -> Unit,
     onDelete: () -> Unit,
+    onUpdateAmount: (transactionId: Long, amount: Double) -> Unit = { _, _ -> },
 ) {
     var showRawText by remember { mutableStateOf(false) }
+    var editingAmount by remember { mutableStateOf(false) }
+    var amountText by remember(transaction.id) { mutableStateOf(plainAmount(transaction.amount)) }
     val isCredit = transaction.txnType == TransactionType.CREDIT
 
     ModalBottomSheet(
@@ -81,15 +92,62 @@ fun TransactionDetailSheet(
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp),
         ) {
-            // Amount & Type Header
-            Text(
-                text = (if (isCredit) "+" else "-") + " " + Formatters.money(transaction.amount, transaction.currency),
-                style = MaterialTheme.typography.displaySmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = (-0.5).sp,
-                ),
-                color = if (isCredit) PinchTeal else MaterialTheme.colorScheme.onSurface,
-            )
+            // Amount & Type Header (tap pencil to correct a mis-extracted amount)
+            if (editingAmount) {
+                val parsed = amountText.toDoubleOrNull()
+                val valid = parsed != null && parsed > 0
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = amountText,
+                        onValueChange = { amountText = it },
+                        label = { Text("Amount") },
+                        isError = !valid,
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.weight(1f),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PinchTeal),
+                    )
+                    IconButton(
+                        enabled = valid,
+                        onClick = {
+                            if (parsed != null && parsed != transaction.amount) {
+                                onUpdateAmount(transaction.id, parsed)
+                            }
+                            editingAmount = false
+                        },
+                    ) {
+                        Icon(Icons.Filled.Check, contentDescription = "Save amount", tint = PinchTeal)
+                    }
+                    IconButton(onClick = {
+                        amountText = plainAmount(transaction.amount)
+                        editingAmount = false
+                    }) {
+                        Icon(Icons.Filled.Close, contentDescription = "Cancel edit")
+                    }
+                }
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = (if (isCredit) "+" else "-") + " " + Formatters.money(transaction.amount, transaction.currency),
+                        style = MaterialTheme.typography.displaySmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-0.5).sp,
+                        ),
+                        color = if (isCredit) PinchTeal else MaterialTheme.colorScheme.onSurface,
+                    )
+                    IconButton(onClick = {
+                        amountText = plainAmount(transaction.amount)
+                        editingAmount = true
+                    }) {
+                        Icon(
+                            Icons.Filled.Edit,
+                            contentDescription = "Edit amount",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "${transaction.merchantName} · ${Formatters.fullDate(transaction.timestamp)}",
@@ -229,6 +287,10 @@ fun TransactionDetailSheet(
         }
     }
 }
+
+/** 250.0 -> "250", 99.5 -> "99.5": editable text without a trailing ".0". */
+private fun plainAmount(amount: Double): String =
+    java.math.BigDecimal.valueOf(amount).stripTrailingZeros().toPlainString()
 
 private fun confidenceLevelOf(score: Float): com.expensetracker.core.model.ConfidenceLevel = when {
     score >= 0.75f -> com.expensetracker.core.model.ConfidenceLevel.HIGH

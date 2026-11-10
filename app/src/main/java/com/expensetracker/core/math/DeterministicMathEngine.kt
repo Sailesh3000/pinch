@@ -28,11 +28,14 @@ object DeterministicMathEngine {
         val deltaAmount: Double,
         val deltaPercent: Double,
         val transactionCount: Int,
+        /** Month-to-date CREDIT total (money received). */
+        val currentMonthEarned: Double = 0.0,
     )
 
     fun monthSpendSummary(
         transactions: List<Pair<Double, Long>>, // (amount, timestamp) DEBIT rows
         nowEpochMillis: Long,
+        credits: List<Pair<Double, Long>> = emptyList(), // (amount, timestamp) CREDIT rows
     ): MonthSpendSummary {
         val (curStart, _) = monthRange(nowEpochMillis)
         val (prevStart, prevEnd) = monthRange(curStart - 1L)
@@ -50,6 +53,11 @@ object DeterministicMathEngine {
             }
         }
 
+        var earned = 0.0
+        for ((amount, timestamp) in credits) {
+            if (timestamp >= curStart) earned += amount
+        }
+
         val deltaAmount = current - previous
         val deltaPercent = if (previous > 0.0) (deltaAmount / previous) * 100.0 else 0.0
         return MonthSpendSummary(
@@ -58,6 +66,7 @@ object DeterministicMathEngine {
             deltaAmount = deltaAmount,
             deltaPercent = deltaPercent,
             transactionCount = count,
+            currentMonthEarned = earned,
         )
     }
 

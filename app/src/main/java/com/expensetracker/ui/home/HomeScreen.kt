@@ -91,6 +91,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val searchText by viewModel.searchText.collectAsStateWithLifecycle()
     var selectedTransaction by remember { mutableStateOf<Transaction?>(null) }
     var showManualEntry by remember { mutableStateOf(false) }
 
@@ -146,7 +147,7 @@ fun HomeScreen(
 
             // Search and Category Filter
             SearchAndFilterBar(
-                query = uiState.searchQuery,
+                query = searchText,
                 onQueryChange = viewModel::setSearchQuery,
                 categories = uiState.categories,
                 selectedCategoryId = uiState.selectedCategoryId,
@@ -187,6 +188,11 @@ fun HomeScreen(
             categories = uiState.categories,
             onDismiss = { selectedTransaction = null },
             onUpdateCategory = viewModel::updateCategory,
+            onUpdateAmount = { id, amount ->
+                viewModel.updateAmount(id, amount)
+                // The sheet holds a snapshot; refresh it so the new amount shows.
+                selectedTransaction = transaction.copy(amount = amount)
+            },
             onDelete = {
                 viewModel.deleteTransaction(transaction.id)
                 selectedTransaction = null
@@ -295,6 +301,31 @@ private fun MonthSummaryHeader(
                             color = Color.White.copy(alpha = 0.8f),
                         )
                     }
+                }
+                Spacer(modifier = Modifier.height(14.dp))
+                HorizontalDivider(color = Color.White.copy(alpha = 0.25f))
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = "EARNED THIS MONTH",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            letterSpacing = 1.2.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        ),
+                        color = Color.White.copy(alpha = 0.85f),
+                    )
+                    Text(
+                        text = "+ " + Formatters.money(summary?.currentMonthEarned ?: 0.0),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontFamily = MonoFont,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                        color = Color(0xFFAEF1E1),
+                    )
                 }
             }
         }
