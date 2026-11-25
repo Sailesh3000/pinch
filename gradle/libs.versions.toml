@@ -29,6 +29,8 @@ sqliteKtx = "2.4.0"
 sentry = "7.20.0"
 sentryGradlePlugin = "5.6.0"
 playAssetDelivery = "2.2.2"
+playServicesAds = "24.4.0"
+userMessagingPlatform = "3.2.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -72,6 +74,8 @@ androidx-sqlite-ktx = { group = "androidx.sqlite", name = "sqlite-ktx", version.
 sentry-android = { group = "io.sentry", name = "sentry-android", version.ref = "sentry" }
 play-asset-delivery = { group = "com.google.android.play", name = "asset-delivery", version.ref = "playAssetDelivery" }
 play-asset-delivery-ktx = { group = "com.google.android.play", name = "asset-delivery-ktx", version.ref = "playAssetDelivery" }
+play-services-ads = { group = "com.google.android.gms", name = "play-services-ads", version.ref = "playServicesAds" }
+user-messaging-platform = { group = "com.google.android.ump", name = "user-messaging-platform", version.ref = "userMessagingPlatform" }
 sentry-android-gradle-plugin = { group = "io.sentry", name = "sentry-android-gradle-plugin", version.ref = "sentryGradlePlugin" }
 
 [plugins]

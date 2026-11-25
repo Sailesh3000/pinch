@@ -9,12 +9,17 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import com.expensetracker.ads.AdsConsentManager
 import com.expensetracker.ui.ExpenseTrackerRoot
 import com.expensetracker.ui.theme.ExpenseTrackerTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var adsConsentManager: AdsConsentManager
 
     private val requestNotificationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -24,6 +29,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         requestNotificationPermissionIfNeeded()
+        // Google UMP: refresh consent each launch; shows the form only when required (EEA/UK etc.).
+        adsConsentManager.gatherConsent(this)
         setContent {
             ExpenseTrackerTheme {
                 ExpenseTrackerRoot()

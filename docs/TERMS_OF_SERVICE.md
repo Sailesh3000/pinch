@@ -22,8 +22,13 @@ you grant and may revoke at any time:
 - **Notification access** — to read transaction notifications from the
   payment/banking apps you choose to whitelist (see the Privacy Policy).
 - **SMS read access** (optional, where applicable) — to read bank SMS alerts.
-- **Internet access** — to download the optional on-device AI model and, where
-  enabled, to send anonymized crash diagnostics reported by your device.
+- **Internet access** — to download the optional on-device AI model, to load
+  ads served by Google AdMob, and, where enabled, to send anonymized crash
+  diagnostics reported by your device.
+
+The App is free and displays third-party advertising from Google AdMob. Ads
+are provided by Google under Google's own terms; we are not responsible for
+the content of third-party ads.
 
 You acknowledge that granting these permissions is voluntary and that revoking
 them may degrade features (e.g., automatic transaction capture) but will not

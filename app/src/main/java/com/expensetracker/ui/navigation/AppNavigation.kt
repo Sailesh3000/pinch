@@ -50,6 +50,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.expensetracker.ui.ads.AdsViewModel
+import com.expensetracker.ui.ads.BannerAd
 import com.expensetracker.ui.home.HomeScreen
 import com.expensetracker.ui.insights.InsightsScreen
 import com.expensetracker.ui.review.ReviewScreen
@@ -77,12 +79,18 @@ fun MainScaffold() {
     val destinations = TopLevelDestination.entries
     val reviewViewModel: ReviewViewModel = hiltViewModel()
     val reviewState by reviewViewModel.uiState.collectAsState()
+    val adsViewModel: AdsViewModel = hiltViewModel()
+    val canRequestAds by adsViewModel.canRequestAds.collectAsState()
 
     Scaffold(
         bottomBar = {
             val backStackEntry by navController.currentBackStackEntryAsState()
             val currentDestination = backStackEntry?.destination
 
+            Column(modifier = Modifier.fillMaxWidth()) {
+            if (canRequestAds) {
+                BannerAd()
+            }
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -176,6 +184,7 @@ fun MainScaffold() {
                         }
                     }
                 }
+            }
             }
         },
     ) { innerPadding ->

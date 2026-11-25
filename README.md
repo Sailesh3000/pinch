@@ -1,4 +1,4 @@
-# Expense Tracker (Android) — 100% On-Device
+# Expense Tracker (Android) — On-Device AI
 
 A privacy-first Android expense tracker that **passively captures bank/UPI/payment
 notifications** (including SMS-originated bank alerts via the Messages app's
@@ -220,7 +220,7 @@ stable before the first insert. `MIGRATION_1_2` adds the Phase-2 tables.
 |---|---|
 | `READ_SMS` / `RECEIVE_SMS` | **None** — SMS text is only seen as the Messages app's notification |
 | Notification listener | Required; prominent disclosure on the onboarding screen with a settings deep link. See `docs/NOTIFICATION_ACCESS_JUSTIFICATION.md` |
-| `INTERNET` | Model comes bundled via Play Asset Delivery on Play Store installs (no network use); sideloads use it for a one-time fallback model download. Also carries opt-in crash diagnostics if Sentry is ever enabled |
+| `INTERNET` | Model comes bundled via Play Asset Delivery on Play Store installs (no network use); sideloads use it for a one-time fallback model download. Also used by Google AdMob banner ads + UMP consent, and opt-in crash diagnostics if Sentry is ever enabled. Transaction data never sent |
 | Storage | Encrypted SQLCipher database (Android Keystore-managed passphrase); model file in the PAD asset pack or internal storage |
 
 **Data at rest:**

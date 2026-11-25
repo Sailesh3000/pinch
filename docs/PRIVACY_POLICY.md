@@ -1,12 +1,14 @@
 # Privacy Policy for Pinch — Expense Tracker
 
-**Last Updated:** 2026-09-17
+**Last Updated:** 2026-11-22
 
 ## Overview
 
-Pinch is a privacy-first, 100% on-device expense tracking application. Your
-financial data never leaves your device. This privacy policy explains what
-data we access, how it is used, and what is never collected.
+Pinch is a privacy-first expense tracking application. All transaction
+processing happens on your device, and your financial data never leaves it.
+Pinch is free and supported by ads served by Google AdMob (see
+"Advertising" below). This privacy policy explains what data we access, how it
+is used, and what is never collected.
 
 ## Data We Access
 
@@ -17,9 +19,12 @@ data we access, how it is used, and what is never collected.
 
 ## What We NEVER Collect
 
-- **No personal identifiers** (name, email, phone number, device ID)
+- **No personal identifiers** (name, email, phone number) — Pinch itself
+  collects none. The Google AdMob SDK collects a device advertising ID; see
+  "Advertising".
 - **No financial account numbers** — we extract merchant names and amounts only
-- **No location data**
+- **No precise location data** (AdMob may infer approximate location from your
+  IP address)
 - **No contacts, call logs, or SMS history content**
 - **No server-side transmission of your transactions** — everything stays on-device
 
@@ -115,7 +120,34 @@ diagnostics with the following safeguards:
   when enabled.
 - **Google Play Asset Delivery** — delivers the bundled AI model.
 - **Hugging Face / GitHub Releases** — optional fallback model download hosts.
-- No advertising, marketing, or analytics SDKs are used.
+- **Google AdMob** — advertising (see below).
+- **Google User Messaging Platform (UMP)** — collects and stores your ad consent
+  choice where required by law.
+
+## Advertising
+
+Pinch shows banner ads served by **Google AdMob**. The AdMob SDK runs inside
+the app and may collect and share with Google:
+
+- Device identifiers (Android Advertising ID, app set ID)
+- Approximate location derived from IP address
+- App interaction data (ad impressions and taps) and diagnostics
+- Device information (model, OS version, language)
+
+This data is used to serve, measure and (if you consent) personalize ads, and
+to prevent fraud. **AdMob never receives your transactions, SMS or
+notification content, amounts, merchants or categories** — that data stays
+on your device.
+
+**Your choices:**
+- In the EEA, UK and Switzerland (and other regions where required) you are
+  asked for consent on first launch. You can change it any time in
+  **Settings → Legal → Ad Privacy Choices**.
+- You can reset or delete your Advertising ID, or opt out of personalized ads,
+  in Android **Settings → Privacy → Ads**.
+
+Learn how Google uses data:
+<https://policies.google.com/technologies/partner-sites>
 
 ## Children's Privacy
 

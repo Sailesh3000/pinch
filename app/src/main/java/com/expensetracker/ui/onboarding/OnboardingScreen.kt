@@ -112,8 +112,8 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                         )
                         1 -> StepIllustration(
                             icon = Icons.Filled.Lock,
-                            title = "100% on-device & private",
-                            body = "Your financial data never leaves your phone. Processed entirely locally with on-device intelligence. No servers, no tracking.",
+                            title = "Your finances stay on your phone",
+                            body = "Your financial data never leaves your phone. Processed entirely locally with on-device intelligence. Pinch is free and shows ads from Google, which never see your transactions.",
                         )
                         2 -> StepIllustration(
                             icon = Icons.Filled.NotificationsActive,

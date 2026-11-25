@@ -37,7 +37,8 @@ Pinch does **not** log, count, or transmit:
   timestamp)` fields are written only to the app's local, SQLCipher-encrypted
   Room database.
 - Nothing extracted from notifications is uploaded anywhere, and the app uses
-  no analytics (crash reports via Sentry are enabled only when a DSN is
+  no analytics. The only network SDK is Google AdMob for banner ads, which never
+  receives notification content or any extracted field (crash reports via Sentry are enabled only when a DSN is
   configured, are opt-opted-out for PII, and a scrubber strips any
   financial-looking tokens before events leave the device).
 - Unread notification bodies are discarded: Pinch parses on receipt and does

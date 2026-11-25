@@ -31,7 +31,7 @@ android {
         applicationId = "com.sailesh.pinch"
         minSdk = 26
         targetSdk = 36
-        versionCode = 17
+        versionCode = 18
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk {
@@ -40,6 +40,11 @@ android {
         // Sentry DSN — set a real value before shipping. Empty string disables
         // crash reporting entirely (Sentry init is skipped when blank).
         buildConfigField("String", "SENTRY_DSN", "\"\"")
+
+        // AdMob IDs. Defaults are Google's public TEST IDs (safe to click, earn nothing).
+        // Release overrides below with real IDs from the AdMob console.
+        manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
+        buildConfigField("String", "BANNER_AD_UNIT_ID", "\"ca-app-pub-3940256099942544/9214589741\"")
     }
 
     signingConfigs {
@@ -69,6 +74,9 @@ android {
             ndk {
                 debugSymbolLevel = "FULL"
             }
+            // Real AdMob IDs (account pub-8592443087354039). Debug keeps Google test IDs.
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-8592443087354039~5213551111"
+            buildConfigField("String", "BANNER_AD_UNIT_ID", "\"ca-app-pub-8592443087354039/9414051973\"")
         }
         debug {
             isMinifyEnabled = false
@@ -136,6 +144,9 @@ dependencies {
 
     implementation(libs.play.asset.delivery)
     implementation(libs.play.asset.delivery.ktx)
+
+    implementation(libs.play.services.ads)
+    implementation(libs.user.messaging.platform)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

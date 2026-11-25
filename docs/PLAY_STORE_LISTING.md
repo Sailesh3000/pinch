@@ -3,7 +3,7 @@
 ## App Description
 
 ### Short Description (80 chars max)
-Track expenses automatically from UPI/bank notifications. 100% on-device, zero cloud.
+Auto-track UPI & bank spends. On-device AI, your transactions never leave phone.
 
 ### Full Description (4000 chars max)
 Expense Tracker automatically categorizes your spending from UPI and bank notifications — completely on-device.
@@ -14,7 +14,7 @@ Expense Tracker automatically categorizes your spending from UPI and bank notifi
 • Interactive clarification for ambiguous transactions
 • Spending insights with natural language queries
 • Anomaly detection for unusual spending patterns
-• 100% offline — your data never leaves your device
+• Your transaction data never leaves your device
 
 **HOW IT WORKS:**
 1. Grant notification access to read payment app notifications
@@ -25,7 +25,8 @@ Expense Tracker automatically categorizes your spending from UPI and bank notifi
 
 **PRIVACY-FIRST:**
 • No server-side processing — all AI runs on your device
-• No analytics, no tracking, no data collection
+• Transactions, SMS and notifications are never uploaded
+• Free, supported by Google AdMob banner ads (ads never see your financial data)
 • Encrypted local database
 • Open-source codebase
 
@@ -106,16 +107,16 @@ Settings → Apps → Expense Tracker → Permissions → SMS → Deny
 - **Do you transmit this data?** No
 
 **Justification:**
-The app requires internet access for one-time download of on-device AI models (~50MB) from Google's model hosting. After download, the app operates fully offline.
+The app uses internet access to (1) download on-device AI models when not delivered with the install, and (2) load banner ads and the ad-consent form via Google AdMob / UMP. Transaction data is never transmitted.
 
 **What is downloaded:**
 - Gemini Nano model (via Google AI Core)
 - MediaPipe/Qwen2.5 model (fallback for devices without Gemini Nano)
 
-**No ongoing network access** after initial model download.
+**Ongoing network access:** AdMob ad requests and UMP consent only.
 
 **User-facing explanation:**
-"Expense Tracker uses internet only once to download AI models (~50MB). After that, the app works fully offline. Your data is never transmitted."
+"Pinch uses the internet to download its on-device AI model and to show ads from Google. Your transactions are never transmitted."
 
 ---
 
@@ -128,8 +129,12 @@ The app requires internet access for one-time download of on-device AI models (~
 | Notification content | Yes (on-device) | No | On-device |
 | SMS content | Yes (on-device) | No | On-device |
 | Personal identifiers | No | No | N/A |
+| Device or other IDs (Advertising ID) | Yes (AdMob SDK) | Yes (Google, advertising) | Off-device by Google |
+| Approximate location (IP-derived) | Yes (AdMob SDK) | Yes (Google, advertising) | Off-device by Google |
+| App interactions (ad views/taps) | Yes (AdMob SDK) | Yes (Google, advertising & analytics) | Off-device by Google |
+| Crash logs / diagnostics | Yes (AdMob SDK) | Yes (Google, fraud prevention) | Off-device by Google |
 | Financial account numbers | No | No | N/A |
-| Location | No | No | N/A |
+| Precise location | No | No | N/A |
 | Contacts | No | No | N/A |
 
 ### Data Handling
@@ -137,13 +142,13 @@ The app requires internet access for one-time download of on-device AI models (~
 - **Encryption:** All data stored in an SQLCipher-encrypted database (Android Keystore-managed passphrase)
 - **Deletion:** Uninstalling the app permanently removes all data. There is no in-app "delete all data" control yet.
 - **Retention:** Data is stored until the app is uninstalled
-- **Third-party sharing:** None
+- **Third-party sharing:** Financial data: none. Google AdMob SDK collects/shares device IDs, approximate location, ad interactions and diagnostics for advertising, analytics and fraud prevention. Consent requested via Google UMP where required.
 
 ### Security Practices
 
 - All data processing happens on-device
-- No server-side data transmission
-- No analytics or crash reporting
+- No server-side transmission of financial data
+- Only third-party SDK that sends data: Google AdMob (ads)
 - Open-source codebase for transparency
 
 ---
@@ -156,7 +161,7 @@ The app requires internet access for one-time download of on-device AI models (~
 - No user-generated content
 - No social features
 - No in-app purchases
-- No ads
+- Contains ads (Google AdMob banner)
 - No external links
 
 ---
@@ -174,7 +179,7 @@ The app requires internet access for one-time download of on-device AI models (~
 
 ## Ads & In-App Purchases
 
-- **Ads:** None
+- **Ads:** Yes — Google AdMob adaptive banner above bottom navigation (Play Console: App content → Ads → "Yes, my app contains ads")
 - **In-app purchases:** None
 - **Subscription:** None
 

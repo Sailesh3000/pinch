@@ -67,6 +67,7 @@ import com.expensetracker.ui.theme.Coral
 import com.expensetracker.ui.theme.CoralSoft
 import com.expensetracker.ui.theme.MintGlow
 import com.expensetracker.ui.theme.MistTeal
+import com.expensetracker.ui.ads.AdsViewModel
 import com.expensetracker.ui.theme.PinchTeal
 
 private const val PRIVACY_POLICY_URL =
@@ -75,8 +76,12 @@ private const val TERMS_OF_SERVICE_URL =
     "https://raw.githubusercontent.com/Sailesh3000/pinch/main/docs/TERMS_OF_SERVICE.md"
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(
+    viewModel: SettingsViewModel = hiltViewModel(),
+    adsViewModel: AdsViewModel = hiltViewModel(),
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val adPrivacyOptionsRequired by adsViewModel.privacyOptionsRequired.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
 
@@ -308,6 +313,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 LegalCard(
                     onPrivacyClick = { uriHandler.openUri(PRIVACY_POLICY_URL) },
                     onTermsClick = { uriHandler.openUri(TERMS_OF_SERVICE_URL) },
+                    onAdPrivacyClick = if (adPrivacyOptionsRequired) {
+                        { context.findActivity()?.let(adsViewModel::showPrivacyOptions) }
+                    } else {
+                        null
+                    },
                 )
                 Spacer(modifier = Modifier.height(80.dp))
             }
@@ -567,7 +577,11 @@ private fun DataManagementCard(
 }
 
 @Composable
-private fun LegalCard(onPrivacyClick: () -> Unit, onTermsClick: () -> Unit) {
+private fun LegalCard(
+    onPrivacyClick: () -> Unit,
+    onTermsClick: () -> Unit,
+    onAdPrivacyClick: (() -> Unit)?,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -592,8 +606,20 @@ private fun LegalCard(onPrivacyClick: () -> Unit, onTermsClick: () -> Unit) {
             OutlinedButton(onClick = onTermsClick, shape = RoundedCornerShape(50), modifier = Modifier.fillMaxWidth()) {
                 Text("Terms of Service")
             }
+            if (onAdPrivacyClick != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(onClick = onAdPrivacyClick, shape = RoundedCornerShape(50), modifier = Modifier.fillMaxWidth()) {
+                    Text("Ad Privacy Choices")
+                }
+            }
         }
     }
+}
+
+private tailrec fun android.content.Context.findActivity(): android.app.Activity? = when (this) {
+    is android.app.Activity -> this
+    is android.content.ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 private fun notificationListenerEnabled(context: android.content.Context): Boolean {
